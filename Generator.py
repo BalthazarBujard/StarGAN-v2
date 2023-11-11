@@ -119,68 +119,55 @@ class AdainResBlk(nn.Module):
         out += identity  # Add the shortcut connection
         return out / math.sqrt(2)  # Normalize the output
 
+class Generator(nn.Module):
+    def __init__(self, img_size=256, style_dim=64, max_conv_dim=512):
+        super().__init__()
+         # Calculate the initial input dimension based on the desired image size
+        dim_in = 2**14 // img_size
+        self.img_size = img_size
+         # Define the initial convolution layer to process RGB input
+        self.from_rgb = nn.Conv2d(3, dim_in, 3, 1, 1) # conv 1*1
+        # Initialize lists to store encoding and decoding blocks
+        self.encode = nn.ModuleList()
+        self.decode = nn.ModuleList()
+        # Define the final output layer
+        self.to_rgb = nn.Sequential(
+            nn.InstanceNorm2d(dim_in, affine=True), # Layer Norma
+            nn.LeakyReLU(0.2), # Leaky relu activation Function
+            nn.Conv2d(dim_in, 3, 1, 1, 0)) # conv 1*1
 
-class MappingNetwork(nn.Module):
-    def __init__(self, latent_dim=16, style_dim=64, num_domains=2):
-        """
-        Initialize the MappingNetwork module.
+        # down/up-sampling blocks
+        repeat_num = int(np.log2(img_size)) - 4
+        
+        for _ in range(repeat_num):
+            # Determine the output dimension for the current block and clip dimensions > max_conv_dim
+            dim_out = min(dim_in*2, max_conv_dim)
+            # Append a Residual Block to the encoding list
+            self.encode.append(ResBlk(dim_in, dim_out, normalize=True, downsample=True))
+            # Append from the left Adin Residual Block to the decoding list
+            self.decode.insert(0, AdainResBlk(dim_out, dim_in, style_dim,upsample=True))  
+            # Update the input dimension for the next block
+            dim_in = dim_out
 
-        Parameters:
-        latent_dim (int, optional): The dimension of the latent space. Defaults to 16.
-        style_dim (int, optional): The dimension of the style vector. Defaults to 64.
-        num_domains (int, optional): The number of different domains for style encoding. Defaults to 2.
-        """
-        super(MappingNetwork, self).__init__()
+        # bottleneck blocks
+        for _ in range(2):
+            # Append a Residual Block to the encoding list
+            self.encode.append(ResBlk(dim_out, dim_out, normalize=True))
+             # Append an Adin Residual Block to the decoding list (inserted from the left)
+            self.decode.insert(0, AdainResBlk(dim_out, dim_out, style_dim,))
 
-        # Shared layers are common across all domains
-        self.shared_layers = nn.Sequential(
-            nn.Linear(latent_dim, 512),
-            nn.ReLU(),
-            nn.Linear(512, 512),
-            nn.ReLU(),
-            nn.Linear(512, 512),
-            nn.ReLU(),
-            nn.Linear(512, 512),
-            nn.ReLU()
-        )
-
-        # Unshared layers are specific to each domain
-        self.unshared_layers = nn.ModuleList([
-            nn.Sequential(
-                nn.Linear(512, 512),
-                nn.ReLU(),
-                nn.Linear(512, 512),
-                nn.ReLU(),
-                nn.Linear(512, 512),
-                nn.ReLU(),
-                nn.Linear(512, style_dim)
-            ) for _ in range(num_domains)
-        ])
-
-    def forward(self, x, y):
-        """
-        Forward pass of the MappingNetwork.
-
-        Parameters:
-        x (torch.Tensor): The input latent vector.
-        y (torch.Tensor): The domain labels indicating which domain each input belongs to.
-
-        Returns:
-        torch.Tensor: The output style vector for each input in the corresponding domain.
-        """
-        x = self.shared_layers(x)  # Apply shared layers to the input
-
-        # Process each domain that appears in y separately
-        # y.unique() provides the unique domain indices present in y
-        # For each unique domain index, apply the corresponding unshared layer to x
-        domain_outputs = [self.unshared_layers[domain_idx](x) for domain_idx in y.unique()]
-
-        # Concatenate the outputs for each domain according to the input domain labels
-        out = torch.cat([domain_outputs[y[i]] for i in range(len(y))], dim=0)
-
-        # Reshape the output to the desired format
-        # The -1 in view function is a placeholder that gets automatically replaced with the correct number
-        # to ensure the tensor is reshaped to have len(y) rows and style_dim columns.
-        return out.view(len(y), -1, style_dim)
+    def forward(self, x, s, masks=None):
+        # Initial processing of the RGB input 
+        x = self.from_rgb(x)
+         # Encoding phase
+        for block in self.encode:
+            # Apply the current decoding block,
+            x = block(x)
+        # Decoding phase
+        for block in self.decode:
+            # Apply the current decoding block, conditioned on style 's'
+            x = block(x, s)
+        # Final output layer to produce the RGB image (1*1 Conv)
+        return self.to_rgb(x)
 
 
