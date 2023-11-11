@@ -62,32 +62,14 @@ class AdainResBlk(nn.Module):
         self.activate = activate  # Activation function
         self.adjust_dim = input_dim != output_dim  # Check if input and output dimensions are different
 
-        # Create convolutional layers
-        self.conv_layers = self._make_conv_layers(input_dim, output_dim, style_dim)
+        # Create AdaIN and convolutional layers
+        self.adain1 = AdaIN(style_dim, input_dim)
+        self.conv1 = nn.Conv2d(input_dim, output_dim, kernel_size=3, stride=1, padding=1)
+        self.adain2 = AdaIN(style_dim, output_dim)
+        self.conv2 = nn.Conv2d(output_dim, output_dim, kernel_size=3, stride=1, padding=1)
+
         # Create shortcut connection
         self.shortcut = self._make_shortcut(input_dim, output_dim)
-
-    def _make_conv_layers(self, input_dim, output_dim, style_dim):
-        """
-        Create convolutional layers for the block.
-
-        Parameters:
-        input_dim (int): The number of input channels.
-        output_dim (int): The number of output channels.
-        style_dim (int): The dimension of the style vector.
-
-        Returns:
-        torch.nn.Sequential: A sequence of layers comprising the convolutional part of the block.
-        """
-        layers = nn.Sequential(
-            AdaIN(style_dim, input_dim),  # First AdaIN layer
-            self.activate,  # Activation function
-            nn.Conv2d(input_dim, output_dim, kernel_size=3, stride=1, padding=1),  # First convolutional layer
-            AdaIN(style_dim, output_dim),  # Second AdaIN layer
-            self.activate,  # Activation function
-            nn.Conv2d(output_dim, output_dim, kernel_size=3, stride=1, padding=1)  # Second convolutional layer
-        )
-        return layers
 
     def _make_shortcut(self, input_dim, output_dim):
         """
@@ -125,14 +107,22 @@ class AdainResBlk(nn.Module):
             x = F.interpolate(x, scale_factor=2, mode='nearest')
             identity = F.interpolate(identity, scale_factor=2, mode='nearest')
 
-        out = self.conv_layers(x, style)  # Apply the convolutional layers
+        # Apply the AdaIN and convolutional layers
+        x = self.adain1(x, style)
+        x = self.activate(x)
+        x = self.conv1(x)
+        x = self.adain2(x, style)
+        x = self.activate(x)
+        x = self.conv2(x)
 
         if self.adjust_dim:
             # Adjust the identity to match the dimensions if necessary
             identity = self.shortcut(identity)
 
-        out += identity  # Add the shortcut connection
+        out = x + identity  # Add the shortcut connection
         return out / math.sqrt(2)  # Normalize the output
+
+
 
 class Generator(nn.Module):
     """
@@ -207,11 +197,10 @@ class Generator(nn.Module):
         return self.to_rgb(x)
 
 # JUST TO TEST !!!!!!!!!!
-tensor_length = (3,256,256)
+
 style_length = 64
-style = torch.rand(style_length)
-tensor = torch.rand(tensor_length)
-
+batch_size = 1
+tensor = torch.rand(batch_size, 3, 256, 256)  # (batch_size, channels, height, width)
+style = torch.rand(batch_size, style_length)  # (batch_size, style_dim)
 generator_model = Generator()
-
-output = generator_model(tensor,style)
+output = generator_model(tensor, style)
