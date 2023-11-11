@@ -14,7 +14,7 @@ class MappingNetwork(nn.Module):
         num_domains (int, optional): The number of different domains for style encoding. Defaults to 2.
         """
         super(MappingNetwork, self).__init__()
-
+        self.style_dim = style_dim
         # Shared layers are common across all domains
         self.shared_layers = nn.Sequential(
             nn.Linear(latent_dim, 512),
@@ -64,4 +64,4 @@ class MappingNetwork(nn.Module):
         # Reshape the output to the desired format
         # The -1 in view function is a placeholder that gets automatically replaced with the correct number
         # to ensure the tensor is reshaped to have len(y) rows and style_dim columns.
-        return out.view(len(y), -1, style_dim)
+        return out.view(len(y), -1, self.style_dim)
