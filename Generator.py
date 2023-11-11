@@ -7,6 +7,11 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 class AdaIN(nn.Module):
+    """
+        Initialize the AdainResBlk module.
+        style_dim (int): The dimension of the style vector. Defaults to 64.
+        num_features (int): dimension of the input feature map  
+    """
     def __init__(self, style_dim, num_features):
         super().__init__()
         # Applies Instance Normalization over a 4D input (a mini-batch of 2D inputs with additional channel dimension)
@@ -18,6 +23,16 @@ class AdaIN(nn.Module):
         self.fc = nn.Linear(style_dim, num_features*2)
 
     def forward(self, x, s):
+        """
+        Forward pass of the AdaIN.
+
+        Parameters:
+        x (torch.Tensor): The input tensor.
+        s (torch.Tensor): The style vector.
+
+        Returns:
+        torch.Tensor: The normalized input tensor x 
+        """
         # The forward method takes two inputs: x is the input tensor to be normalized, and s is the style tensor.
         h = self.fc(s)
         # reshape to (batch_size, num_features*2, 1, 1)
@@ -26,7 +41,7 @@ class AdaIN(nn.Module):
         # retrieve gamma and beta from h
         # Splits the tensor h into 2 sub-tensors (gamma and beta) along dimension 1
         gamma, beta = torch.tensor_split(h, 2, dim=1) 
-        # return the normalized input tensor x 
+      
         return (1 + gamma) * self.norm(x) + beta
 
 
@@ -120,6 +135,14 @@ class AdainResBlk(nn.Module):
         return out / math.sqrt(2)  # Normalize the output
 
 class Generator(nn.Module):
+    """
+        Initialize the Generator module.
+
+        Parameters:
+        - img_size (int): Desired image size.
+        - style_dim (int): Dimension of the style vector.
+        - max_conv_dim (int): Maximum convolutional dimension.
+    """
     def __init__(self, img_size=256, style_dim=64, max_conv_dim=512):
         super().__init__()
          # Calculate the initial input dimension based on the desired image size
@@ -156,7 +179,17 @@ class Generator(nn.Module):
              # Append an Adin Residual Block to the decoding list (inserted from the left)
             self.decode.insert(0, AdainResBlk(dim_out, dim_out, style_dim,))
 
-    def forward(self, x, s, masks=None):
+    def forward(self, x, s):
+        """
+        Forward pass of the Generator module.
+
+        Parameters:
+        - x (torch.Tensor): The input tensor.
+        - s (torch.Tensor): The style vector.
+
+        Returns:
+        torch.Tensor: The output RGB image.
+        """
         # Initial processing of the RGB input 
         x = self.from_rgb(x)
          # Encoding phase
