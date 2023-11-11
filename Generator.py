@@ -161,8 +161,8 @@ class Generator(nn.Module):
 
         # down/up-sampling blocks
         repeat_num = int(np.log2(img_size)) - 4
-        
-        for _ in range(repeat_num):
+        count = 0
+        while count < repeat_num:
             # Determine the output dimension for the current block and clip dimensions > max_conv_dim
             dim_out = min(dim_in*2, max_conv_dim)
             # Append a Residual Block to the encoding list
@@ -171,13 +171,16 @@ class Generator(nn.Module):
             self.decode.insert(0, AdainResBlk(dim_out, dim_in, style_dim,upsample=True))  
             # Update the input dimension for the next block
             dim_in = dim_out
+            count += 1
 
         # bottleneck blocks
-        for _ in range(2):
-            # Append a Residual Block to the encoding list
-            self.encode.append(ResBlk(dim_out, dim_out, normalize=True))
-             # Append an Adin Residual Block to the decoding list (inserted from the left)
-            self.decode.insert(0, AdainResBlk(dim_out, dim_out, style_dim,))
+
+        # Append 2 Residual Blocks to the encoding list
+        self.encode.append(ResBlk(dim_out, dim_out, normalize=True))
+        self.encode.append(ResBlk(dim_out, dim_out, normalize=True))
+        # Append 2 Adain Residual Blocks to the decoding list (inserted from the left)
+        self.decode.insert(0, AdainResBlk(dim_out, dim_out, style_dim))
+        self.decode.insert(0, AdainResBlk(dim_out, dim_out, style_dim))
 
     def forward(self, x, s):
         """
@@ -203,4 +206,12 @@ class Generator(nn.Module):
         # Final output layer to produce the RGB image (1*1 Conv)
         return self.to_rgb(x)
 
+# JUST TO TEST !!!!!!!!!!
+tensor_length = (3,256,256)
+style_length = 64
+style = torch.rand(style_length)
+tensor = torch.rand(tensor_length)
 
+generator_model = Generator()
+
+output = generator_model(tensor,style)
