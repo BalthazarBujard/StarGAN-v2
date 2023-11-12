@@ -16,7 +16,7 @@ class ResBlk(nn.Module):
     Parameters:
         - in_size (int): Number of input channels.
         - out_size (int): Number of output channels.
-        - resampling (str): Type of the block, specifying upsampling ('UP') or downsampling ('DOWN').
+        - resampling (str,optional): Type of the block, specifying upsampling ('UP') or downsampling ('DOWN'). Defaults to None.
         - normalization (str, optional): Type of instance normalization, either 'IN' or 'AdaIN'. Defaults to None.
         - S_size (int, optional): Length of the style code used for AdaIN normalization. Defaults to None.
 
