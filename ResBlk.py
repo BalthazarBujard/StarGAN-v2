@@ -80,8 +80,10 @@ class ResBlk(nn.Module):
             x = self.conv1(x)
 
         # Apply instance normalization to the second convolution
-        if self.normalization:
+        if self.normalization == 'IN':
             x = self.conv2(self.activation(self.norm2(x)))
+        elif self.normalization == 'AdaIN':
+            x = self.conv2(self.activation(self.norm2(x, s)))
         else:
             x = self.conv2(self.activation(x))
 
