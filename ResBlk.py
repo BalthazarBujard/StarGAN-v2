@@ -55,13 +55,14 @@ class ResBlk(nn.Module):
     def skip_con(self, x):
         # Skip connection based on the specified resampling type
         if self.resampling == 'UP':
-            x = F.interpolate(x, scale_factor=2, mode='nearest')
-        
+            #Down/up samples the input to either the given scale_factor
+            x = F.interpolate(x, scale_factor=2)
+            
         if self.in_size!=self.out_size: 
             x = self.conv1x1(x)
         
         if self.resampling == 'Down':
-            x = F.avg_pool2d(x, 2)
+            x = F.avg_pool2d(x, kernel_size=2)
         
         return x
     
