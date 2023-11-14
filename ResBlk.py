@@ -42,7 +42,8 @@ class ResBlk(nn.Module):
         # Convolution layers
         self.conv1 = nn.Conv2d(in_size, in_size, 3, 1, 1)
         self.conv2 = nn.Conv2d(in_size, out_size, 3, 1, 1)
-
+        self.conv1x1 = nn.Conv2d(in_size, out_size, 1, 1, 0, bias=False)
+        
         # Normalization layers
         if normalization == 'IN':
             self.norm1 = nn.InstanceNorm2d(in_size, affine=True)
@@ -53,13 +54,15 @@ class ResBlk(nn.Module):
   
     def skip_con(self, x):
         # Skip connection based on the specified resampling type
-        if self.resampling == 'Down':
-            x = F.avg_pool2d(x, 2)
-        elif self.resampling == 'UP':
+        if self.resampling == 'UP':
             x = F.interpolate(x, scale_factor=2, mode='nearest')
         
-        #if self.learned_sc:   ? 
-            #x = self.conv1x1(x)
+        if self.in_size!=self.out_size: 
+            x = self.conv1x1(x)
+        
+        if self.resampling == 'Down':
+            x = F.avg_pool2d(x, 2)
+        
         return x
     
     def convBlock(self, x, s=None):
@@ -74,7 +77,6 @@ class ResBlk(nn.Module):
         # Resampling (up/down)
         if self.resampling == 'Down':
             x = F.avg_pool2d(x, 2)
-
         elif self.resampling == 'UP':
             x = F.interpolate(x, scale_factor=2, mode='nearest')
             x = self.conv1(x)
@@ -92,4 +94,3 @@ class ResBlk(nn.Module):
     def forward(self, x, s=None):
         # Return the sum of skip connection and convolution block output, divided by sqrt(2) to get unit variance
         return (self.skip_con(x) + self.convBlock(x, s)) / math.sqrt(2)
-        #if self.w_hpf == 0: ?
