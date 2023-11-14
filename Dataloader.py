@@ -135,8 +135,8 @@ def get_loader(root, batch_size, img_size, chunk = "train"):
         #small rotation and random horizintal flip
         #resize usefull?
         transform = transforms.Compose([
-            transforms.RandomResizedCrop(size=img_size, scale=(0.8,1), ratio=(0.9,1.1)),
-            transforms.Resize([img_size,img_size]),
+            transforms.RandomResizedCrop(size=img_size, scale=(0.8,1), ratio=(0.9,1.1),antialias=True),
+            transforms.Resize([img_size,img_size],antialias=True),
             transforms.RandomRotation(10),
             transforms.RandomHorizontalFlip(),
             transforms.ToTensor(),

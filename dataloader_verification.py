@@ -48,6 +48,11 @@ train_loader=get_loader(root,batch_size=8,img_size=256)
 loader_iter = iter(train_loader)
 imgs, labels, z1s, z2s, ys = next(loader_iter)
 
+#%%
+img = torch.permute(imgs[0], [1,2,0])
+plt.imshow(img)
+plt.show()
+
 
 
 
