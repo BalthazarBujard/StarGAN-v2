@@ -196,11 +196,3 @@ class Generator(nn.Module):
         # Final output layer to produce the RGB image (1*1 Conv)
         return self.to_rgb(x)
 
-# JUST TO TEST !!!!!!!!!!
-
-style_length = 64
-batch_size = 1
-tensor = torch.rand(batch_size, 3, 256, 256)  # (batch_size, channels, height, width)
-style = torch.rand(batch_size, style_length)  # (batch_size, style_dim)
-generator_model = Generator()
-output = generator_model(tensor, style)
