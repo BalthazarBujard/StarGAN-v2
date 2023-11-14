@@ -3,7 +3,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import math
-
+    
 class ResBlk(nn.Module):
     """
     Pre-activation Residual Block
@@ -17,7 +17,8 @@ class ResBlk(nn.Module):
         - in_size (int): Number of input channels.
         - out_size (int): Number of output channels.
         - resampling (str,optional): Type of the block, specifying upsampling ('UP') or downsampling ('DOWN'). Defaults to None.
-        - normalization (str, optional): Type of instance normalization, either 'IN' or 'AdaIN'. Defaults to None.
+        - normalizationMethod (str, optional): Type of instance normalization, either 'IN' or 'AdaIN'. Defaults to None.
+        - nomalize : (bool,optional): True to nomalise the resblock (Only for IN Method)
         - S_size (int, optional): Length of the style code used for AdaIN normalization. Defaults to None.
 
     Methods:
@@ -26,14 +27,15 @@ class ResBlk(nn.Module):
         - forward(x, s=None): Combines the skip connection and convolutional block, dividing by sqrt(2) for unit variance.
     """
     
-    def __init__(self, in_size, out_size, resampling, normalization=None, S_size=None):
+    def __init__(self, in_size, out_size, resampling, nomalize = None ,normalizationMethod =None, S_size=None):
         super().__init__()
 
         # Initialize parameters
         self.in_size = in_size
         self.out_size = out_size
-        self.resampling = resampling        
-        self.normalization = normalization  
+        self.resampling = resampling
+        self.normalize = nomalize     
+        self.normalizationMethod = normalizationMethod  
         self.S_size = S_size                
 
         # Activation function
@@ -45,10 +47,11 @@ class ResBlk(nn.Module):
         self.conv1x1 = nn.Conv2d(in_size, out_size, 1, 1, 0, bias=False)
         
         # Normalization layers
-        if normalization == 'IN':
-            self.norm1 = nn.InstanceNorm2d(in_size, affine=True)
-            self.norm2 = nn.InstanceNorm2d(in_size, affine=True)
-        elif normalization == 'AdaIN':
+        if self.normalizationMethod == 'IN':
+            if self.nomalize : 
+                self.norm1 = nn.InstanceNorm2d(in_size, affine=True)
+                self.norm2 = nn.InstanceNorm2d(in_size, affine=True)
+        elif self.normalizationMethod == 'AdaIN':
             self.norm1 = AdaIN(S_size, in_size) 
             self.norm2 = AdaIN(S_size, out_size)
   
@@ -68,9 +71,9 @@ class ResBlk(nn.Module):
     
     def convBlock(self, x, s=None):
         # Apply instance normalization or AdaIN based on the specified normalization type
-        if self.normalization == "IN":
+        if self.normalizationMethod  == "IN":
             x = self.activation(self.norm1(x))      
-        elif self.normalization == "AdaIN":
+        elif self.normalizationMethod  == "AdaIN":
             x = self.conv1(self.activation(self.norm1(x, s)))        
         else:
             x = self.conv1(self.activation(x))
@@ -83,9 +86,9 @@ class ResBlk(nn.Module):
             x = self.conv1(x)
 
         # Apply instance normalization to the second convolution
-        if self.normalization == 'IN':
+        if self.normalizationMethod  == 'IN':
             x = self.conv2(self.activation(self.norm2(x)))
-        elif self.normalization == 'AdaIN':
+        elif self.normalizationMethod  == 'AdaIN':
             x = self.conv2(self.activation(self.norm2(x, s)))
         else:
             x = self.conv2(self.activation(x))
