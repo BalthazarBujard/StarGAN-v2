@@ -19,7 +19,8 @@ class StyleEncoder(nn.Module):
             ResBlk(512, 512, 'DOWN'),
             ResBlk(512, 512, 'DOWN'),
             ResBlk(512, 512, 'DOWN'),
-            nn.Conv2d(512, 512, 3, 1, 1),
+            nn.LeakyReLU(0.2),
+            nn.Conv2d(512,512, 4, 1, 1),
             nn.LeakyReLU(0.2),
         )
         
@@ -30,11 +31,10 @@ class StyleEncoder(nn.Module):
 
     def forward(self, x, branch):
         x = self.sequential(x)
-        #x = torch.flatten(x)
         x = x.view(x.size(0), -1)
         # Generate output for different branches in parallel
         outp = torch.stack([linear(x) for linear in self.parallel], dim=1)
-        s = outp[torch.arange(branch.size(0)), branch]
+        s = outp[torch.arange(branch.size(0)).to(branch.device), branch] # to(branch.device) to avoid Runtime error
 
         return s
 
