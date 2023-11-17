@@ -14,46 +14,58 @@ class Generator(nn.Module):
         Parameters:
         - img_size (int): Desired image size.
         - style_dim (int): Dimension of the style vector.
-        - max_conv_dim (int): Maximum convolutional dimension.
+
     """
-    def __init__(self, img_size=256, style_dim=64, max_conv_dim=512):
+    def __init__(self, img_size=256, style_dim=64):
         super().__init__()
-         # Calculate the initial input dimension based on the desired image size
-        dim_in = 2**14 // img_size
         self.img_size = img_size
          # Define the initial convolution layer to process RGB input
-        self.from_rgb = nn.Conv2d(3, dim_in, 3, 1, 1) # conv 1*1
+        self.from_rgb = nn.Conv2d(3, 64, 3, 1, 1) # conv 1*1
         # Initialize lists to store encoding and decoding blocks
         self.encode = nn.ModuleList()
         self.decode = nn.ModuleList()
         # Define the final output layer
         self.to_rgb = nn.Sequential(
-            nn.InstanceNorm2d(dim_in, affine=True), # Layer Norma
+            nn.InstanceNorm2d(64, affine=True), # Layer Norma
             nn.LeakyReLU(0.2), # Leaky relu activation Function
-            nn.Conv2d(dim_in, 3, 1, 1, 0)) # conv 1*1
+            nn.Conv2d(64, 3, 1, 1, 0)) # conv 1*1
 
         # down/up-sampling blocks
-        repeat_num = int(np.log2(img_size)) - 4
-        count = 0
-        while count < repeat_num:
-            # Determine the output dimension for the current block and clip dimensions > max_conv_dim
-            dim_out = min(dim_in*2, max_conv_dim)
-            # Append a Residual Block to the encoding list
-            self.encode.append(ResBlk(dim_in, dim_out, normalize=True, downsample=True))
-            # Append from the left Adin Residual Block to the decoding list
-            self.decode.insert(0, AdainResBlk(dim_out, dim_in, style_dim,upsample=True))  
-            # Update the input dimension for the next block
-            dim_in = dim_out
-            count += 1
+        
+        """
+        self.encode.append(ResBlk(64, 128, normalize=True, downsample=True))
+        self.decode.insert(0, AdainResBlk(128, 64, style_dim,upsample=True))
 
+        self.encode.append(ResBlk(128, 256, normalize=True, downsample=True))
+        self.decode.insert(0, AdainResBlk(256, 128, style_dim,upsample=True))  
+
+        self.encode.append(ResBlk(256, 512, normalize=True, downsample=True))
+        self.decode.insert(0, AdainResBlk(512, 256, style_dim,upsample=True)) 
+
+        self.encode.append(ResBlk(512, 512, normalize=True, downsample=True))
+        self.decode.insert(0, AdainResBlk(512, 512, style_dim,upsample=True))  
+        """
+        self.encode.append(ResBlk(64, 128, resampling='DOWN' ,normalizationMethod ='IN', S_size=style_dim))
+        self.decode.insert(0, ResBlk(128, 64, resampling='UP' ,normalizationMethod ='AdaIN', S_size=style_dim))
+
+        self.encode.append(ResBlk(128, 256, resampling='DOWN' ,normalizationMethod ='IN', S_size=style_dim))
+        self.decode.insert(0, ResBlk(256, 128, resampling='UP' ,normalizationMethod ='AdaIN', S_size=style_dim))
+
+        self.encode.append(ResBlk(256, 512, resampling='DOWN' ,normalizationMethod ='IN', S_size=style_dim))
+        self.decode.insert(0, ResBlk(512, 256, resampling='UP' ,normalizationMethod ='AdaIN', S_size=style_dim))
+
+        self.encode.append(ResBlk(512, 512, resampling='DOWN' ,normalizationMethod ='IN', S_size=style_dim))
+        self.decode.insert(0, ResBlk(512, 512, resampling='UP' ,normalizationMethod ='AdaIN', S_size=style_dim))
+
+        
         # bottleneck blocks
 
         # Append 2 Residual Blocks to the encoding list
-        self.encode.append(ResBlk(dim_out, dim_out, normalize=True))
-        self.encode.append(ResBlk(dim_out, dim_out, normalize=True))
+        self.encode.append(ResBlk(512, 512,normalizationMethod ='IN', S_size=style_dim))
+        self.encode.append(ResBlk(512, 512,normalizationMethod ='IN', S_size=style_dim))
         # Append 2 Adain Residual Blocks to the decoding list (inserted from the left)
-        self.decode.insert(0, AdainResBlk(dim_out, dim_out, style_dim))
-        self.decode.insert(0, AdainResBlk(dim_out, dim_out, style_dim))
+        self.decode.insert(0, ResBlk(512, 512,normalizationMethod ='AdaIN', S_size=style_dim))
+        self.decode.insert(0, ResBlk(512, 512,normalizationMethod ='AdaIN', S_size=style_dim))
 
     def forward(self, x, s):
         """
@@ -79,11 +91,11 @@ class Generator(nn.Module):
         # Final output layer to produce the RGB image (1*1 Conv)
         return self.to_rgb(x)
 
-# JUST TO TEST !!!!!!!!!!
 
 style_length = 64
 batch_size = 1
 tensor = torch.rand(batch_size, 3, 256, 256)  # (batch_size, channels, height, width)
 style = torch.rand(batch_size, style_length)  # (batch_size, style_dim)
 generator_model = Generator()
+print(generator_model)
 output = generator_model(tensor, style)

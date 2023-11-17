@@ -38,17 +38,3 @@ class StyleEncoder(nn.Module):
 
         return s
 
-# Example usage of StyleEncoder
-# Instantiate the StyleEncoder class
-input_size = 256  # Placeholder value for input size
-S_size = 64  # Placeholder value for S_size
-outp_branches = 3  # Placeholder value for the number of output branches
-encoder = StyleEncoder(S_size, outp_branches)
-
-branch = 1
-# Example input tensors
-x = torch.randn(1, 3, input_size, input_size)  # Placeholder input tensor
-
-# Forward pass through the StyleEncoder
-output = encoder(x, branch)
-print("Output shape:", output.shape)  # Print the shape of the output tensor

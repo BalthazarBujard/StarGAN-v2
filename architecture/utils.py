@@ -119,7 +119,7 @@ class ResBlk(nn.Module):
         # Apply instance normalization or AdaIN based on the specified normalization type
         if self.normalizationMethod  == "IN":
             x = self.norm1(x)
-            x = self.activation()
+            x = self.activation(x)
             x = self.conv1(x)
         elif self.normalizationMethod  == "AdaIN":
            x = self.norm1(x, s)
