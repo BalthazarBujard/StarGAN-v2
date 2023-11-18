@@ -1,10 +1,13 @@
-import copy
-import math
-
 import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+import math
+
+"""
+    This file contains building blocks for our network modules.
+    The key modules include: Adaptive instance normalization, Residual block
+"""
 
 class AdaIN(nn.Module):
     """
@@ -43,7 +46,116 @@ class AdaIN(nn.Module):
         gamma, beta = torch.tensor_split(h, 2, dim=1) 
       
         return (1 + gamma) * self.norm(x) + beta
+    
+class ResBlk(nn.Module):
+    """
+    Pre-activation Residual Block
+    
+    This Block is a generic and customizable pre-activation rsesidual unit [https://arxiv.org/abs/1603.05027].
+    
+    It can function as an upsampling, downsampling, or intermediate residual block based on the
+    specified instance normalization and resampling techniques.
 
+    Parameters:
+        - in_size (int): Number of input channels.
+        - out_size (int): Number of output channels.
+        - resampling (str,optional): Type of the block, specifying upsampling ('UP') or downsampling ('DOWN'). Defaults to None.
+        - normalizationMethod (str, optional): Type of instance normalization, either 'IN' or 'AdaIN'. Defaults to None.
+        - S_size (int, optional): Length of the style code used for AdaIN normalization. Defaults to None.
+
+    Methods:
+        - skip_con(x): Implements the skip connection based on the specified resampling type.
+        - convBlock(x, s=None): Implements the convolutional block with optional instance normalization.
+        - forward(x, s=None): Combines the skip connection and convolutional block, dividing by sqrt(2) for unit variance.
+    """
+    
+    def __init__(self, in_size, out_size, resampling=None ,normalizationMethod =None, S_size=64):
+        super().__init__()
+
+        # Initialize parameters
+        self.in_size = in_size
+        self.out_size = out_size
+        self.resampling = resampling  
+        self.normalizationMethod = normalizationMethod  
+        self.S_size = S_size                
+
+        # Activation function
+        self.activation = nn.LeakyReLU(0.2)
+
+        # Convolution layers
+        if self.normalizationMethod=='AdaIN':
+            self.conv1 = nn.Conv2d(in_size, out_size, 3, 1, 1)
+            self.conv2 = nn.Conv2d(out_size, out_size, 3, 1, 1)
+        else:
+            self.conv1 = nn.Conv2d(in_size, in_size, 3, 1, 1)
+            self.conv2 = nn.Conv2d(in_size, out_size, 3, 1, 1)
+        
+        self.conv1x1 = nn.Conv2d(in_size, out_size, 1, 1, 0, bias=False)
+        
+        # Normalization layers
+        if self.normalizationMethod == 'IN':
+            self.norm1 = nn.InstanceNorm2d(in_size, affine=True)
+            self.norm2 = nn.InstanceNorm2d(in_size, affine=True)
+        elif self.normalizationMethod == 'AdaIN':
+            self.norm1 = AdaIN(S_size, in_size) 
+            self.norm2 = AdaIN(S_size, out_size)
+  
+    def skip_con(self, x):
+        # Skip connection based on the specified resampling type
+        if self.resampling == 'UP':
+            #Down/up samples the input to either the given scale_factor
+            x = F.interpolate(x, scale_factor=2) 
+            
+        if self.in_size!=self.out_size: 
+            x = self.conv1x1(x)
+        
+        if self.resampling == 'DOWN':
+            x = F.avg_pool2d(x, kernel_size=2)
+        
+        return x
+    
+    def convBlock(self, x, s=None):
+        
+        # Apply instance normalization or AdaIN based on the specified normalization type
+        if self.normalizationMethod  == "IN":
+            x = self.norm1(x)
+            x = self.activation(x)
+            x = self.conv1(x)
+        elif self.normalizationMethod  == "AdaIN":
+           x = self.norm1(x, s)
+           x = self.activation(x)     
+        else:
+            x = self.activation(x)
+            x = self.conv1(x)
+
+        # Resampling (up/down)
+        if self.resampling == 'DOWN':
+            x = F.avg_pool2d(x, 2)
+        elif self.resampling == 'UP':
+            x = F.interpolate(x, scale_factor=2, mode='nearest')
+    
+        if self.normalizationMethod  == "AdaIN":
+            x = self.conv1(x)
+        # Apply instance normalization to the second convolution
+        if self.normalizationMethod  == 'IN':
+            x = self.norm2(x)
+            x = self.activation(x)
+            x = self.conv2(x)
+        elif self.normalizationMethod  == 'AdaIN':
+            x = self.norm2(x, s)
+            x = self.activation(x)
+            x = self.conv2(x)
+        else:
+            x = self.activation(x)
+            x = self.conv2(x)
+        
+        return x
+
+    def forward(self, x, s=None):
+        # Return the sum of skip connection and convolution block output, divided by sqrt(2) to get unit variance
+        return (self.skip_con(x) + self.convBlock(x, s)) / math.sqrt(2)
+
+#Redundant, replaced by ResBlk
 
 class AdainResBlk(nn.Module):
     def __init__(self, input_dim, output_dim, style_dim=64, activate=nn.LeakyReLU(0.2), upsample=False):
@@ -121,86 +233,3 @@ class AdainResBlk(nn.Module):
 
         out = x + identity  # Add the shortcut connection
         return out / math.sqrt(2)  # Normalize the output
-
-
-
-class Generator(nn.Module):
-    """
-        Initialize the Generator module.
-
-        Parameters:
-        - img_size (int): Desired image size.
-        - style_dim (int): Dimension of the style vector.
-        - max_conv_dim (int): Maximum convolutional dimension.
-    """
-    def __init__(self, img_size=256, style_dim=64, max_conv_dim=512):
-        super().__init__()
-         # Calculate the initial input dimension based on the desired image size
-        dim_in = 2**14 // img_size
-        self.img_size = img_size
-         # Define the initial convolution layer to process RGB input
-        self.from_rgb = nn.Conv2d(3, dim_in, 3, 1, 1) # conv 1*1
-        # Initialize lists to store encoding and decoding blocks
-        self.encode = nn.ModuleList()
-        self.decode = nn.ModuleList()
-        # Define the final output layer
-        self.to_rgb = nn.Sequential(
-            nn.InstanceNorm2d(dim_in, affine=True), # Layer Norma
-            nn.LeakyReLU(0.2), # Leaky relu activation Function
-            nn.Conv2d(dim_in, 3, 1, 1, 0)) # conv 1*1
-
-        # down/up-sampling blocks
-        repeat_num = int(np.log2(img_size)) - 4
-        count = 0
-        while count < repeat_num:
-            # Determine the output dimension for the current block and clip dimensions > max_conv_dim
-            dim_out = min(dim_in*2, max_conv_dim)
-            # Append a Residual Block to the encoding list
-            self.encode.append(ResBlk(dim_in, dim_out, normalize=True, downsample=True))
-            # Append from the left Adin Residual Block to the decoding list
-            self.decode.insert(0, AdainResBlk(dim_out, dim_in, style_dim,upsample=True))  
-            # Update the input dimension for the next block
-            dim_in = dim_out
-            count += 1
-
-        # bottleneck blocks
-
-        # Append 2 Residual Blocks to the encoding list
-        self.encode.append(ResBlk(dim_out, dim_out, normalize=True))
-        self.encode.append(ResBlk(dim_out, dim_out, normalize=True))
-        # Append 2 Adain Residual Blocks to the decoding list (inserted from the left)
-        self.decode.insert(0, AdainResBlk(dim_out, dim_out, style_dim))
-        self.decode.insert(0, AdainResBlk(dim_out, dim_out, style_dim))
-
-    def forward(self, x, s):
-        """
-        Forward pass of the Generator module.
-
-        Parameters:
-        - x (torch.Tensor): The input tensor.
-        - s (torch.Tensor): The style vector.
-
-        Returns:
-        torch.Tensor: The output RGB image.
-        """
-        # Initial processing of the RGB input 
-        x = self.from_rgb(x)
-         # Encoding phase
-        for block in self.encode:
-            # Apply the current decoding block,
-            x = block(x)
-        # Decoding phase
-        for block in self.decode:
-            # Apply the current decoding block, conditioned on style 's'
-            x = block(x, s)
-        # Final output layer to produce the RGB image (1*1 Conv)
-        return self.to_rgb(x)
-
-# JUST TO TEST !!!!!!!!!!
-
-style_length = 64
-batch_size = 1
-tensor = torch.rand(batch_size, 3, 256, 256)  # (batch_size, channels, height, width)
-style = torch.rand(batch_size, style_length)  # (batch_size, style_dim)
-generator_model = Generator()
-output = generator_model(tensor, style)

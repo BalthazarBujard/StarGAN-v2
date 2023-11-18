@@ -52,3 +52,10 @@ class MappingNetwork(nn.Module):
 
 
 
+# for test
+mapping_network = MappingNetwork(latent_dim=16, style_dim=64, num_domains=2)
+
+latent_vector = torch.randn(10, 16)
+domain_labels = torch.randint(0, 2, (10,))
+output = mapping_network(latent_vector, domain_labels)
+print("Output shape:", output.shape)  # output desired [10, 64]
