@@ -41,27 +41,21 @@ class MappingNetwork(nn.Module):
         ])
 
     def forward(self, x, y):
-        """
-        Forward pass of the MappingNetwork.
-
-        Parameters:
-        x (torch.Tensor): The input latent vector.
-        y (torch.Tensor): The domain labels indicating which domain each input belongs to.
-
-        Returns:
-        torch.Tensor: The output style vector for each input in the corresponding domain.
-        """
         x = self.shared_layers(x)  # Apply shared layers to the input
 
-        # Process each domain that appears in y separately
-        # y.unique() provides the unique domain indices present in y
-        # For each unique domain index, apply the corresponding unshared layer to x
-        domain_outputs = [self.unshared_layers[domain_idx](x) for domain_idx in y.unique()]
+        # Process each sample with its corresponding unshared layer
+        out = torch.stack([self.unshared_layers[y[i]](x[i].unsqueeze(0)) for i in range(len(y))], dim=0).squeeze(1)
 
-        # Concatenate the outputs for each domain according to the input domain labels
-        out = torch.cat([domain_outputs[y[i]] for i in range(len(y))], dim=0)
+        return out
 
-        # Reshape the output to the desired format
-        # The -1 in view function is a placeholder that gets automatically replaced with the correct number
-        # to ensure the tensor is reshaped to have len(y) rows and style_dim columns.
-        return out.view(len(y), -1, self.style_dim)
+
+
+
+
+# for test
+mapping_network = MappingNetwork(latent_dim=16, style_dim=64, num_domains=2)
+
+latent_vector = torch.randn(10, 16)
+domain_labels = torch.randint(0, 2, (10,))
+output = mapping_network(latent_vector, domain_labels)
+print("Output shape:", output.shape)  # output desired [10, 64]
