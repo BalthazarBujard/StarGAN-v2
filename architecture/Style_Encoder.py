@@ -20,7 +20,7 @@ class StyleEncoder(nn.Module):
             ResBlk(512, 512, 'DOWN'),
             ResBlk(512, 512, 'DOWN'),
             nn.LeakyReLU(0.2),
-            nn.Conv2d(512,512, 4, 1, 1),
+            nn.Conv2d(512,512, 4, 1, 0),
             nn.LeakyReLU(0.2),
         )
         

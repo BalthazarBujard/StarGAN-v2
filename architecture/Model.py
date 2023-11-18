@@ -2,6 +2,8 @@ from Generator import *
 from Mapping_Network import * 
 from Style_Encoder import * 
 from Discriminator import *
+from torch.nn.parallel import DistributedDataParallel
+import torch.distributed as dist
 import munch
 """
 Model Arguments :
@@ -14,13 +16,16 @@ Model Arguments :
 """
 def Model(params):
     """
-    nn.DistributedDataParallel is used to parallelize data across multiple GPUs in a distributed fashion, 
+    DistributedDataParallel is used to parallelize data across multiple GPUs in a distributed fashion, 
     which can significantly speed up training times for large models or datasets.
     """
-    generator = nn.DistributedDataParallel(Generator(params.img_size,params.style_dim))
-    mapping_network = nn.DistributedDataParallel(MappingNetwork(params.latent_dim, params.style_dim, params.num_domains))
-    style_encoder = nn.DistributedDataParallel(StyleEncoder(params.style_dim, params.num_domains))
-    discriminator = nn.DistributedDataParallel(Discriminator(params.style_dim,params.num_domains))
+    # Initialize the process group
+    # dist.init_process_group(backend='cuda', rank=0, world_size=1)
+
+    generator = (Generator(params.img_size,params.style_dim))
+    mapping_network = (MappingNetwork(params.latent_dim, params.style_dim, params.num_domains))
+    style_encoder = (StyleEncoder(params.style_dim, params.num_domains))
+    discriminator = (Discriminator(params.num_domains))
 
     generator_copy = copy.deepcopy(generator)
     mapping_network_copy = copy.deepcopy(mapping_network)

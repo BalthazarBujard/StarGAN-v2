@@ -7,7 +7,7 @@ import math
 from utils import *
 
 class Discriminator(nn.Module):
-    def __init__(self, S_size, outp_branches):
+    def __init__(self,outp_branches):
         super().__init__()
         
         # Sequential layers for feature extraction
