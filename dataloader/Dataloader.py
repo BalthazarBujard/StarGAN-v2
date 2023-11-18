@@ -11,6 +11,7 @@ script for creating the different datasets useful for the StarGANv2
 import os
 from PIL import Image
 import numpy as np
+from munch import Munch
 import torch
 from torchvision import transforms
 from torch.utils.data import Dataset, DataLoader, WeightedRandomSampler
@@ -60,7 +61,7 @@ class StarDataset(Dataset):
         
         #get 2 ref images fro training
         if self.chunk == "train":
-            img_ref1, img_ref2 = np.random.choice(self.imgs_paths,size=2,replace=False)
+            img_ref1, img_ref2 = np.random.choice(self.img_paths,size=2,replace=False)
             img_ref1 = Image.open(img_ref1).convert("RGB")
             img_ref2 = Image.open(img_ref2).convert("RGB")
         
@@ -76,10 +77,15 @@ class StarDataset(Dataset):
         z2 = torch.randn(self.latent_dim)
         y_trg = torch.randint(0, len(self.domains), ())
         
-        inputs=[img,label]
+        
         
         if self.chunk=="train":
-            inputs = [img, label, z1, z2, img_ref1, img_ref2, y_trg] 
+            inputs = Munch(x = img, y=label, z1 = z1,
+                           z2=z2, x_ref1 = img_ref1, x_ref2 = img_ref2,
+                           y_trg = y_trg)
+            
+        elif self.chunk=="test":
+            inputs = Munch(x=img, y = label)
         
         return inputs
     
@@ -155,7 +161,7 @@ def get_loader(root, batch_size, img_size, chunk = "train"):
         transform = transforms.Compose([
             transforms.RandomResizedCrop(size=img_size, scale=(0.8,1), ratio=(0.9,1.1),antialias=True),
             transforms.Resize([img_size,img_size],antialias=True),
-            transforms.RandomRotation(10),
+            #transforms.RandomRotation(10),
             transforms.RandomHorizontalFlip(),
             transforms.ToTensor(),
             transforms.Normalize([0.5]*3,[0.5]*3)
