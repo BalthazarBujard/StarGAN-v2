@@ -148,7 +148,8 @@ def r1_reg(out_real, x_real):
 
 
 # -----------------------------------------------------------test loss---------------------------------------------------
-
+import sys
+sys.path.append('architecture')
 from Generator import *
 from Mapping_Network import *
 from Style_Encoder import *
