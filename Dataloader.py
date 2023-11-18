@@ -20,7 +20,7 @@ torch.manual_seed(123)
 
 
 
-#A FAIRE : DATASET AVEC REFERENCE (POUR TEST/EVAL) -> 2 IMAGES (INPUT + REFERENCE)
+#A FAIRE : DATASET AVEC REFERENCE -> 2 IMAGES (INPUT + REFERENCE)
 class StarDataset(Dataset):
     def __init__(self, root, size=256, latent_dim = 16, transform=None, chunk="train"):
                 
@@ -28,6 +28,7 @@ class StarDataset(Dataset):
         
         self.size=size
         self.latent_dim = latent_dim
+        self.chunk=chunk
         
         if transform is not None:
             self.transform = transform
@@ -47,23 +48,40 @@ class StarDataset(Dataset):
     def __getitem__(self, index):
         #function that returns an image and its corresponding domain (label)
         #should also return a pair of latent codes z1 and z2 of latent_dim dimension
-        #and a corresponding domain (also chosen at random)
+        #and a pair of reference images -> during training, either the latent codes or references are used
+        #to compute the style (from style encoder or mapping network)
+        #and its target domain (also chosen at random)
         
         img_path, label = self.img_paths[index], self.labels[index]
         
         img = Image.open(img_path).convert("RGB") #convert to RGB for model input
         
+        
+        
+        #get 2 ref images fro training
+        if self.chunk == "train":
+            img_ref1, img_ref2 = np.random.choice(self.imgs_paths,size=2,replace=False)
+            img_ref1 = Image.open(img_ref1).convert("RGB")
+            img_ref2 = Image.open(img_ref2).convert("RGB")
+        
         #should at least have resize and normalize (and toTensor obviously)
         if self.transform is not None:
             img = self.transform(img)
+            img_ref1 = self.transform(img_ref1)
+            img_ref2 = self.transform(img_ref2)
         
         
         #generate 2 random latent codes from normal distribution and a random domain
         z1 = torch.randn(self.latent_dim)
         z2 = torch.randn(self.latent_dim)
-        y = torch.randint(0, len(self.domains), ())
+        y_trg = torch.randint(0, len(self.domains), ())
         
-        return img, label, z1, z2, y 
+        inputs=[img,label]
+        
+        if self.chunk=="train":
+            inputs = [img, label, z1, z2, img_ref1, img_ref2, y_trg] 
+        
+        return inputs
     
     def create_dataset(self, root, chunk):
         #extract imgs_paths and domains (labels) from the root directory
@@ -142,6 +160,11 @@ def get_loader(root, batch_size, img_size, chunk = "train"):
             transforms.ToTensor(),
             transforms.Normalize([0.5]*3,[0.5]*3)
             ])
+    
+    elif chunk == "test" : transform = None
+    
+    else :
+        raise Exception(f"Invalid chunk {chunk}. Valid chunks are train or test")
     
     #create dataset
     dataset = StarDataset(root, size = img_size, transform = transform, chunk=chunk)
