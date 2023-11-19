@@ -21,7 +21,6 @@ torch.manual_seed(123)
 
 
 
-#A FAIRE : DATASET AVEC REFERENCE -> 2 IMAGES (INPUT + REFERENCE)
 class StarDataset(Dataset):
     def __init__(self, root, size=256, latent_dim = 16, transform=None, chunk="train"):
                 
@@ -167,10 +166,10 @@ def get_loader(root, batch_size, img_size, chunk = "train"):
             transforms.Normalize([0.5]*3,[0.5]*3)
             ])
     
-    elif chunk == "test" : transform = None
+    elif chunk == "test" : transform = None #with transform as none we apply default transforms
     
     else :
-        raise Exception(f"Invalid chunk {chunk}. Valid chunks are train or test")
+        raise Exception(f"Invalid chunk : {chunk}. Valid chunks are train or test")
     
     #create dataset
     dataset = StarDataset(root, size = img_size, transform = transform, chunk=chunk)
@@ -184,7 +183,30 @@ def get_loader(root, batch_size, img_size, chunk = "train"):
     return loader
     
     
+#class to fetch inputs, mainly to handle end of dataloader
+#dataloader already handles cases of train and test so no need to do it here
+class Fetcher:
+    def __init__(self,loader):
+        self.loader = loader
+        self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+        
+    def _fetch_inputs(self):
+        #method to fetch next set of inputs
+        try:
+            #try to fectch next inputs
+            inputs = next(self.iter_loader)
+        except (AttributeError, StopIteration):
+            #if self.iter_loader not already instantiated or end of loader
+            self.iter_loader = iter(self.loader)
+            inputs = next(self.iter_loader)
+        
+        return inputs
     
+    def __next__(self):
+        inputs = self._fetch_inputs()
+        
+        #pass inputs to cuda
+        return Munch({key : item.to(self.device) for key, item in inputs.items()})
       
             
             

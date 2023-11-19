@@ -157,6 +157,7 @@ def moving_average(model, model_copy, beta=0.999):
 
 class Trainer : 
     def __init__(self, params):
+        #what is in params?
         self.params = params
         self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         self.netwroks, self.netwroks_copy = Model(params)
