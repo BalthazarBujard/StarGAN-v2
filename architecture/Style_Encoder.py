@@ -4,7 +4,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 import math
 
-from utils import *
+from architecture.utils import *
 
 class StyleEncoder(nn.Module):
     def __init__(self, S_size, outp_branches):

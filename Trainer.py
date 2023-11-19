@@ -5,7 +5,9 @@ from munch import Munch
 import os
 from check_point_handler import *  
 from architecture.Model import *
+from dataloader.Dataloader import Fetcher
 import sys
+
 #  Computes adversarial loss for discriminator.
 def adversarial_loss(discriminator, real_img, fake_img, real_label, fake_label, y_org=None, y_trg=None):
     real_loss = torch.tensor(0.0)
@@ -20,7 +22,7 @@ def adversarial_loss(discriminator, real_img, fake_img, real_label, fake_label, 
 
 # Calculates style reconstruction loss for style encoder.
 def style_reconstruction_loss(style_encoder, generated_img, target_style, branch):
-    # Predicts style from the generated image using the specified branch
+    # Predicts style from the generated image using the specified branch (domain from y_trg)
     predicted_style = style_encoder(generated_img, branch)
     # Calculates the mean absolute error between predicted and target styles
     return torch.mean(torch.abs(predicted_style - target_style))
@@ -41,7 +43,7 @@ def cycle_consistency_loss(generator, input_img, reconstructed_img):
 
 
 # Generator Loss Function
-def loss_generator(nets, x_real, y_org, y_trg, z_trgs=None, x_refs=None, branch_idx=0, lambda_sty=1.0, lambda_ds=1.0, lambda_cyc=1.0):
+def loss_generator(nets, x_real, y_org, y_trg, z_trgs=None, x_refs=None, lambda_sty=1.0, lambda_ds=1.0, lambda_cyc=1.0):
     """
     Calculates the total loss for the generator.
 
@@ -64,8 +66,8 @@ def loss_generator(nets, x_real, y_org, y_trg, z_trgs=None, x_refs=None, branch_
         s_trg2 = nets.mapping_network(z_trg2, y_trg)
     elif x_refs is not None:
         x_ref, x_ref2 = x_refs
-        s_trg = nets.style_encoder(x_ref, y_trg, branch_idx)
-        s_trg2 = nets.style_encoder(x_ref2, y_trg, branch_idx)
+        s_trg = nets.style_encoder(x_ref, y_trg)
+        s_trg2 = nets.style_encoder(x_ref2, y_trg)
     else:
         raise ValueError("Either z_trgs or x_refs must be provided.")
 
@@ -75,8 +77,9 @@ def loss_generator(nets, x_real, y_org, y_trg, z_trgs=None, x_refs=None, branch_
 
     # Compute losses
     out_fake = nets.discriminator(x_fake, y_trg)
+    #TO DO : dont create out_fake outside as its not used, for ones_like, use the batch size of x_real/fake
     loss_adv = adversarial_loss(nets.discriminator, x_real, x_fake, torch.ones_like(out_fake), torch.zeros_like(out_fake), y_org, y_trg)
-    loss_sty = style_reconstruction_loss(nets.style_encoder, x_fake, s_trg, branch_idx)
+    loss_sty = style_reconstruction_loss(nets.style_encoder, x_fake, s_trg, y_trg)
     loss_ds = style_diversification_loss(nets.generator, x_real, s_trg, s_trg2)
 
     # Compute cycle consistency loss (use x_real for reconstruction)
@@ -160,7 +163,7 @@ class Trainer :
         #what is in params?
         self.params = params
         self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-        self.netwroks, self.netwroks_copy = Model(params)
+        self.networks, self.networks_copy = Model(params)
         self.optimizers = Munch()
 
         for key_network in ['generator', 'mapping_network', 'style_encoder', 'discriminator'] : 
@@ -170,7 +173,7 @@ class Trainer :
         if params.mode == 'train':
             for key_network in ['generator', 'mapping_network', 'style_encoder', 'discriminator'] : 
                 self.optimizers[key_network] = torch.optim.Adam(
-                    params=self.netwroks[key_network].parameters(),
+                    params=self.networks[key_network].parameters(),
                     lr=params.f_lr if key_network == 'mapping_network' else params.lr,
                     betas=[params.beta1, params.beta2],
                     weight_decay=params.weight_decay)
@@ -197,7 +200,15 @@ class Trainer :
             cpt.load(step)
         
     def train(self,loaders):
-        pass
+        #loaders shouldhave a train, val and eval loader
+        
+        #get input fetcher
+        fetcher = Fetcher(loaders.train)
+        
+        #get val and eval loader
+            #not implemented yet
+            
+        
 
 
     @torch.no_grad()

@@ -5,8 +5,13 @@ Created on Sat Nov 18 13:28:53 2023
 @author: balth
 """
 
-from architecture import *
-from dataloader import Dataloader
+import matplotlib.pyplot as plt
+plt.plot();plt.show()
+from architecture.Generator import Generator
+from architecture.Mapping_Network import MappingNetwork
+from architecture.Style_Encoder import StyleEncoder
+from architecture.Discriminator import Discriminator
+from dataloader.Dataloader import *
 import torch
 
 root = "../dataset/data/celeba_hq/train"
