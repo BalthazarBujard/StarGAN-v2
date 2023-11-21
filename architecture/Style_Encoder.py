@@ -13,6 +13,7 @@ class StyleEncoder(nn.Module):
         # Sequential layers for feature extraction
         self.sequential = nn.Sequential(
             nn.Conv2d(3, 64, 3, 1, 1),
+            #nn.Conv2d(3,64,1,1,0) vrai conv1x1 from rgb
             ResBlk(64, 128, 'DOWN'),
             ResBlk(128, 256, 'DOWN'),
             ResBlk(256, 512, 'DOWN'),
