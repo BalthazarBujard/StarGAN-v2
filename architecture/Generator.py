@@ -14,9 +14,11 @@ class Generator(nn.Module):
         Parameters:
         - img_size (int): Desired image size.
         - style_dim (int): Dimension of the style vector.
+        - max_dim (int) : max channel dimension for down/upsampling block
+        - n_layers (int) : number of down/upsampling layers (4 for afhq and 5 for celeba_hq)
 
     """
-    def __init__(self, img_size=256, style_dim=64):
+    def __init__(self, img_size=256, style_dim=64, max_dim=512, n_layers=4):
         super().__init__()
         self.img_size = img_size
         # Define the initial convolution layer to process RGB input
@@ -45,17 +47,26 @@ class Generator(nn.Module):
         self.encode.append(ResBlk(512, 512, normalize=True, downsample=True))
         self.decode.insert(0, AdainResBlk(512, 512, style_dim,upsample=True))  
         """
-        self.encode.append(ResBlk(64, 128, resampling='DOWN' ,normalizationMethod ='IN', S_size=style_dim))
-        self.decode.insert(0, ResBlk(128, 64, resampling='UP' ,normalizationMethod ='AdaIN', S_size=style_dim))
+        dim_in = 64
+        for _ in range(n_layers):
+            dim_out = min(dim_in*2,max_dim)
+            
+            self.encode.append(ResBlk(dim_in, dim_out, resampling='DOWN' ,normalizationMethod ='IN', S_size=style_dim))
+            self.decode.insert(0, ResBlk(dim_out, dim_in, resampling='UP' ,normalizationMethod ='AdaIN', S_size=style_dim))
 
-        self.encode.append(ResBlk(128, 256, resampling='DOWN' ,normalizationMethod ='IN', S_size=style_dim))
-        self.decode.insert(0, ResBlk(256, 128, resampling='UP' ,normalizationMethod ='AdaIN', S_size=style_dim))
+            dim_in=dim_out
+        
+        # self.encode.append(ResBlk(64, 128, resampling='DOWN' ,normalizationMethod ='IN', S_size=style_dim))
+        # self.decode.insert(0, ResBlk(128, 64, resampling='UP' ,normalizationMethod ='AdaIN', S_size=style_dim))
 
-        self.encode.append(ResBlk(256, 512, resampling='DOWN' ,normalizationMethod ='IN', S_size=style_dim))
-        self.decode.insert(0, ResBlk(512, 256, resampling='UP' ,normalizationMethod ='AdaIN', S_size=style_dim))
+        # self.encode.append(ResBlk(128, 256, resampling='DOWN' ,normalizationMethod ='IN', S_size=style_dim))
+        # self.decode.insert(0, ResBlk(256, 128, resampling='UP' ,normalizationMethod ='AdaIN', S_size=style_dim))
 
-        self.encode.append(ResBlk(512, 512, resampling='DOWN' ,normalizationMethod ='IN', S_size=style_dim))
-        self.decode.insert(0, ResBlk(512, 512, resampling='UP' ,normalizationMethod ='AdaIN', S_size=style_dim))
+        # self.encode.append(ResBlk(256, 512, resampling='DOWN' ,normalizationMethod ='IN', S_size=style_dim))
+        # self.decode.insert(0, ResBlk(512, 256, resampling='UP' ,normalizationMethod ='AdaIN', S_size=style_dim))
+
+        # self.encode.append(ResBlk(512, 512, resampling='DOWN' ,normalizationMethod ='IN', S_size=style_dim))
+        # self.decode.insert(0, ResBlk(512, 512, resampling='UP' ,normalizationMethod ='AdaIN', S_size=style_dim))
 
         
         # bottleneck blocks
@@ -91,12 +102,11 @@ class Generator(nn.Module):
         # Final output layer to produce the RGB image (1*1 Conv)
         return self.to_rgb(x)
 
-"""
+
 style_length = 64
 batch_size = 1
 tensor = torch.rand(batch_size, 3, 256, 256)  # (batch_size, channels, height, width)
 style = torch.rand(batch_size, style_length)  # (batch_size, style_dim)
 generator_model = Generator()
-print(generator_model)
+#print(generator_model)
 output = generator_model(tensor, style)
-"""
