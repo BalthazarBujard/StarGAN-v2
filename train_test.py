@@ -14,7 +14,7 @@ plt.plot()
 plt.show()
 from architecture.Model import Model
 from dataloader.Dataloader import *
-from Trainer import *
+from train.Trainer import *
 import torch
 from munch import Munch
 

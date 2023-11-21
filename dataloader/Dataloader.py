@@ -188,7 +188,7 @@ def get_loader(root, batch_size, img_size, chunk = "train"):
 class Fetcher:
     def __init__(self,loader):
         self.loader = loader
-        self.device = torch.device('cpu')#torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+        self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         
     def _fetch_inputs(self):
         #method to fetch next set of inputs

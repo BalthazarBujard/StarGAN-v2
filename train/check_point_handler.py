@@ -53,51 +53,51 @@ class SimpleNet(nn.Module):
 
 
 
-# Test 
-import argparse
-parser = argparse.ArgumentParser()
-parser.add_argument('--img_size', type=int, default=256,
-                        help='Image resolution')
-parser.add_argument('--num_domains', type=int, default=2,
-                        help='Number of domains')
-parser.add_argument('--latent_dim', type=int, default=16,
-                        help='Latent vector dimension')
-parser.add_argument('--hidden_dim', type=int, default=512,
-                        help='Hidden dimension of mapping network')
-parser.add_argument('--style_dim', type=int, default=64,
-                        help='Style code dimension')
-params = parser.parse_args()
+# # Test 
+# import argparse
+# parser = argparse.ArgumentParser()
+# parser.add_argument('--img_size', type=int, default=256,
+#                         help='Image resolution')
+# parser.add_argument('--num_domains', type=int, default=2,
+#                         help='Number of domains')
+# parser.add_argument('--latent_dim', type=int, default=16,
+#                         help='Latent vector dimension')
+# parser.add_argument('--hidden_dim', type=int, default=512,
+#                         help='Hidden dimension of mapping network')
+# parser.add_argument('--style_dim', type=int, default=64,
+#                         help='Style code dimension')
+# params = parser.parse_args()
 
-Network,CopyNetwork = Model(params)
+# Network,CopyNetwork = Model(params)
 
 
-# Instantiate the model and checkpoint handler
-model = Model(params)
-checkpoint_handler = ModelCheckpointHandler('checkpoint_{0}.pth', **Network)
+# # Instantiate the model and checkpoint handler
+# model = Model(params)
+# checkpoint_handler = ModelCheckpointHandler('checkpoint_{0}.pth', **Network)
 
-# Save the initial state of the model
-checkpoint_handler.store_checkpoint(0)
+# # Save the initial state of the model
+# checkpoint_handler.store_checkpoint(0)
 
-# Change the weights of the model
-with torch.no_grad():
-    Network['generator'].from_rgb.weight += 1  
+# # Change the weights of the model
+# with torch.no_grad():
+#     Network['generator'].from_rgb.weight += 1  
 
-for key_network in ['generator', 'mapping_network', 'style_encoder', 'discriminator'] : 
-    print(key_network)
-    print("000000000000000")
-    print(Network[key_network])
-# Save the modified state of the model
-checkpoint_handler.store_checkpoint(1)
+# for key_network in ['generator', 'mapping_network', 'style_encoder', 'discriminator'] : 
+#     print(key_network)
+#     print("000000000000000")
+#     print(Network[key_network])
+# # Save the modified state of the model
+# checkpoint_handler.store_checkpoint(1)
 
-# Load the initial state back into the model
-checkpoint_handler.retrieve_checkpoint(0)
+# # Load the initial state back into the model
+# checkpoint_handler.retrieve_checkpoint(0)
 
-# Checking if the weights are back to their initial state
-original_state = torch.load('checkpoint_0.pth', map_location=torch.device('cpu'))['generator']
+# # Checking if the weights are back to their initial state
+# original_state = torch.load('checkpoint_0.pth', map_location=torch.device('cpu'))['generator']
 
-loaded_state = Network['generator'].state_dict()
+# loaded_state = Network['generator'].state_dict()
 
-# Compare the two states
-test_result = all(torch.equal(original_state[key], loaded_state[key]) for key in original_state)
+# # Compare the two states
+# test_result = all(torch.equal(original_state[key], loaded_state[key]) for key in original_state)
 
-print(test_result)
+# print(test_result)
