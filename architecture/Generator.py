@@ -19,7 +19,7 @@ class Generator(nn.Module):
     def __init__(self, img_size=256, style_dim=64):
         super().__init__()
         self.img_size = img_size
-         # Define the initial convolution layer to process RGB input
+        # Define the initial convolution layer to process RGB input
         self.from_rgb = nn.Conv2d(3, 64, 3, 1, 1) # conv 1*1
         # Initialize lists to store encoding and decoding blocks
         self.encode = nn.ModuleList()

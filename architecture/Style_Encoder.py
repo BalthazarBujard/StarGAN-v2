@@ -35,6 +35,5 @@ class StyleEncoder(nn.Module):
         # Generate output for different branches in parallel
         outp = torch.stack([linear(x) for linear in self.parallel], dim=1)
         s = outp[torch.arange(branch.size(0)).to(branch.device), branch] # to(branch.device) to avoid Runtime error
-
         return s
 
