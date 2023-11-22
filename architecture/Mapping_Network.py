@@ -44,6 +44,8 @@ class MappingNetwork(nn.Module):
         x = self.shared_layers(x)  # Apply shared layers to the input
 
         # Process each sample with its corresponding unshared layer
+        #unsqueeze to batch input x
+        #squeeze to eliminate virtual dimension for style vector output
         out = torch.stack([self.unshared_layers[y[i]](x[i].unsqueeze(0)) for i in range(len(y))], dim=0).squeeze(1)
 
         return out

@@ -4,7 +4,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 import math
 
-from utils import *
+from architecture.utils import *
 
 class Discriminator(nn.Module):
     def __init__(self,outp_branches):
@@ -13,6 +13,7 @@ class Discriminator(nn.Module):
         # Sequential layers for feature extraction
         self.sequential = nn.Sequential(
             nn.Conv2d(3, 64, 3, 1, 1),
+            #nn.Conv2d(3,64,1,1,0) vrai conv1x1 from rgb
             ResBlk(64, 128, 'DOWN'),
             ResBlk(128, 256, 'DOWN'),
             ResBlk(256, 512, 'DOWN'),
