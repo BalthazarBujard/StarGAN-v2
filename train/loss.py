@@ -138,7 +138,7 @@ def loss_discriminator(nets, x_real, y_org, y_trg, z_trg=None, x_ref=None, lambd
         else:
             raise ValueError("Either z_trg or x_ref must be provided.")
     x_fake = nets.generator(x_real, s_trg)
-    loss_fake = adversarial_loss(nets.discriminator, fake_img=x_fake, target_label=0, y_trg=y_trg)
+    loss_fake = adversarial_loss(nets.discriminator, fake_img=x_fake, y_trg=y_trg)
 
     # Regularization term
     loss_reg = r1_reg(out_real, x_real)
@@ -166,52 +166,52 @@ def r1_reg(out_real, x_real):
 
 
 # -----------------------------------------------------------test loss---------------------------------------------------
-import sys
-sys.path.append('architecture')
-from Generator import *
-from Mapping_Network import *
-from Style_Encoder import *
-from Discriminator import *
-# from Model import *
-from torch.autograd import Variable
+# import sys
+# sys.path.append('architecture')
+# from Generator import *
+# from Mapping_Network import *
+# from Style_Encoder import *
+# from Discriminator import *
+# # from Model import *
+# from torch.autograd import Variable
 
 
-# Initialize parameters
-img_size = 256      # Image size
-style_dim = 64      # Dimension of style representation
-latent_dim = 16     # Dimension of latent space
-num_domains = 2     # Number of domains for style transfer
+# # Initialize parameters
+# img_size = 256      # Image size
+# style_dim = 64      # Dimension of style representation
+# latent_dim = 16     # Dimension of latent space
+# num_domains = 2     # Number of domains for style transfer
 
-# Instantiate models
-generator = Generator(img_size, style_dim)  # Create generator model
-discriminator = Discriminator(num_domains)  # Create discriminator model
-style_encoder = StyleEncoder(style_dim, num_domains)  # Create style encoder model
-mapping_network = MappingNetwork(latent_dim, style_dim, num_domains)  # Create mapping network model
+# # Instantiate models
+# generator = Generator(img_size, style_dim)  # Create generator model
+# discriminator = Discriminator(num_domains)  # Create discriminator model
+# style_encoder = StyleEncoder(style_dim, num_domains)  # Create style encoder model
+# mapping_network = MappingNetwork(latent_dim, style_dim, num_domains)  # Create mapping network model
 
-# Create test data
-real_img = torch.randn(1, 3, img_size, img_size)  # Real image tensor
-latent_code = torch.randn(1, latent_dim)         # Latent code tensor
-latent_code2 = torch.randn(1, latent_dim)        # Another latent code tensor
-domain_idx = torch.randint(0, num_domains, (1,)) # Domain index tensor
+# # Create test data
+# real_img = torch.randn(1, 3, img_size, img_size)  # Real image tensor
+# latent_code = torch.randn(1, latent_dim)         # Latent code tensor
+# latent_code2 = torch.randn(1, latent_dim)        # Another latent code tensor
+# domain_idx = torch.randint(0, num_domains, (1,)) # Domain index tensor
 
-# Create a collection of networks
-nets = Munch(generator=generator, discriminator=discriminator,
-             style_encoder=style_encoder, mapping_network=mapping_network)
+# # Create a collection of networks
+# nets = Munch(generator=generator, discriminator=discriminator,
+#              style_encoder=style_encoder, mapping_network=mapping_network)
 
-branch_idx = torch.tensor([0])  # Branch index for style encoding
+# branch_idx = torch.tensor([0])  # Branch index for style encoding
 
-# Calculate generator loss
-g_total_loss, g_loss_munch = loss_generator(
-    nets, real_img, domain_idx, domain_idx,
-    z_trgs=(latent_code, latent_code2)
-)
-print(f"Generator Total Loss: {g_total_loss.item()}")
-print(f"Generator Loss Components: Adv: {g_loss_munch.adv}, Sty: {g_loss_munch.sty}, DS: {g_loss_munch.ds}, Cyc: {g_loss_munch.cyc}")
+# # Calculate generator loss
+# g_total_loss, g_loss_munch = loss_generator(
+#     nets, real_img, domain_idx, domain_idx,
+#     z_trgs=(latent_code, latent_code2)
+# )
+# print(f"Generator Total Loss: {g_total_loss.item()}")
+# print(f"Generator Loss Components: Adv: {g_loss_munch.adv}, Sty: {g_loss_munch.sty}, DS: {g_loss_munch.ds}, Cyc: {g_loss_munch.cyc}")
 
-# Calculate discriminator loss
-d_total_loss, d_loss_munch = loss_discriminator(
-    nets, x_real=real_img, y_org=domain_idx, y_trg=domain_idx,
-    z_trg=latent_code, x_ref=None, lambda_reg=1.0
-)
-print(f"Discriminator Total Loss: {d_total_loss.item()}")
-print(f"Discriminator Loss Components: Real: {d_loss_munch.real}, Fake: {d_loss_munch.fake}, Reg: {d_loss_munch.reg}")
+# # Calculate discriminator loss
+# d_total_loss, d_loss_munch = loss_discriminator(
+#     nets, x_real=real_img, y_org=domain_idx, y_trg=domain_idx,
+#     z_trg=latent_code, x_ref=None, lambda_reg=1.0
+# )
+# print(f"Discriminator Total Loss: {d_total_loss.item()}")
+# print(f"Discriminator Loss Components: Real: {d_loss_munch.real}, Fake: {d_loss_munch.fake}, Reg: {d_loss_munch.reg}")

@@ -7,6 +7,7 @@ from train.check_point_handler import *
 from train.loss import loss_generator, loss_discriminator
 from architecture.Model import *
 from dataloader.Dataloader import Fetcher
+import time
 import sys
 
 # #  Computes adversarial loss for discriminator.
@@ -159,17 +160,19 @@ def moving_average(model, model_copy, beta=0.999):
         param_test.data = torch.lerp(param.data, param_test.data, beta) 
 
 
-class Trainer : 
+class Trainer(nn.Module) : 
     def __init__(self, params):
-        #what is in params?
+        #what is in params? -> see train_test
+        super().__init__()
         self.params = params
         self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         self.networks, self.networks_copy = Model(params)
         self.optimizers = Munch()
+        self.var = params.var
 
         for key_network in ['generator', 'mapping_network', 'style_encoder', 'discriminator'] : 
-            setattr(self, key_network, self.netwroks[key_network])
-            setattr(self, key_network + '_ema', self.netwroks_copy[key_network])
+            setattr(self, key_network, self.networks[key_network])
+            setattr(self, key_network + '_copy', self.networks_copy[key_network])
 
         if params.mode == 'train':
             for key_network in ['generator', 'mapping_network', 'style_encoder', 'discriminator'] : 
@@ -180,14 +183,16 @@ class Trainer :
                     weight_decay=params.weight_decay)
                 
             self.checkpoints = [
-                ModelCheckpointHandler(os.path.join(params.checkpoint_dir, '{:06d}_networs.cpt'), data_parallel=True, **self.netwroks),
-                ModelCheckpointHandler(os.path.join(params.checkpoint_dir, '{:06d}__networs_copy.cpt'), data_parallel=True, **self.netwroks_copy),
+                ModelCheckpointHandler(os.path.join(params.checkpoint_dir, '{:06d}_networs.cpt'), data_parallel=True, **self.networks),
+                ModelCheckpointHandler(os.path.join(params.checkpoint_dir, '{:06d}__networs_copy.cpt'), data_parallel=True, **self.networks_copy),
                 ModelCheckpointHandler(os.path.join(params.checkpoint_dir, '{:06d}_optims.cpt'), **self.optimizers)]
 
         else : 
             self.checkpoints = [ModelCheckpointHandler(os.path.join(params.checkpoint_dir, '{:06d}__networs_copy.cpt'), data_parallel=True, **self.netwroks_copy)]
 
+        
         self.to(self.device)
+        
     def _reset_grad(self):
         for optim in self.optims.values():
             optim.zero_grad()
@@ -203,7 +208,9 @@ class Trainer :
     def train(self,loaders):
         params=self.params
         nets=self.networks
+        nets_copy=self.networks_copy
         optims=self.optimizers
+        var = self.var
         #loaders shouldhave a train, val and test/eval loader
         
         #get input fetcher
@@ -214,23 +221,28 @@ class Trainer :
         #get val and test/eval loader
             #not implemented yet
         
+        if params.resume_iter>0:
+            self._load_checkpoint(step=params.resume_iter)
+        
         #retreive starting lr rate
         l_ds_init = params.lambda_ds
         
         print("Start training...")
         t0 = time.time()
-        for i in range(params.resume_iter,params_max_iter):
+        #add epochs viz
+        for i in range(params.resume_iter,params.max_iter):
+            
             inputs = next(input_fetcher)
             
             x_org,y_org = inputs.x, inputs.y
             z1, z2 = inputs.z1, inputs.z2
-            x_ref1, x_ref2 = inputs.x_ref1, x_ref2
+            x_ref1, x_ref2 = inputs.x_ref1, inputs.x_ref2
             y_trg = inputs.y_trg
             
             #Train discriminator
             #with latent code
             d_loss, d_loss_latent = loss_discriminator(nets, x_org, y_org,
-                                                       y_trg, z_trg=[z1,z2])
+                                                        y_trg, z_trg=[z1,z2])
             
             self._reset_grad()
             d_loss.backward()
@@ -238,7 +250,7 @@ class Trainer :
             
             #with reference image
             d_loss, d_loss_ref = loss_discriminator(nets, x_org, y_org,
-                                                       y_trg, x_ref=[x_ref1,x_ref2])
+                                                        y_trg, x_ref=[x_ref1,x_ref2])
             
             self._reset_grad()
             d_loss.backward()
@@ -246,8 +258,8 @@ class Trainer :
             
             #Train generator
             g_loss, g_loss_latent = loss_generator(nets, x_org, y_org, y_trg,
-                                                   z_trg=[z1,z2],
-                                                   lambda_ds=args.lambda_ds)
+                                                    z_trg=[z1,z2],
+                                                    lambda_ds=params.lambda_ds)
             self._reset_grad()
             g_loss.backward()
             optims.generator.step()
@@ -255,8 +267,8 @@ class Trainer :
             optims.style_encoder.step()
             
             g_loss, g_loss_ref = loss_generator(nets, x_org, y_org, y_trg,
-                                                   x_ref=[x_ref1,x_ref2],
-                                                   lambda_ds=args.lambda_ds)
+                                                    x_ref=[x_ref1,x_ref2],
+                                                    lambda_ds=params.lambda_ds)
             self._reset_grad()
             g_loss.backward()
             optims.generator.step()
@@ -264,7 +276,11 @@ class Trainer :
             optims.style_encoder.step()
             
             #moving average
-            #plz explain before implementing
+            #apply moving average to network copy used for eval/test
+            #only applied to generator modules (generator, mapp, encoder)
+            moving_average(nets.generator, nets_copy.generator)
+            moving_average(nets.mapping_network, nets_copy.mapping_network)
+            moving_average(nets.style_encoder, nets_copy.style_encoder)
             
             #update lambda ds with linear decay
             if params.lambda_ds>0:
@@ -331,73 +347,87 @@ def calculate_metrics (netwroks_copy, params, step, mode):
 
 # -----------------------------------------------------------test loss---------------------------------------------------
 
-sys.path.append('architecture')
-from architecture.Generator import *
-from architecture.Mapping_Network import *
-from architecture.Style_Encoder import *
-from architecture.Discriminator import *
-from architecture.Model import *
-from torch.autograd import Variable
+# sys.path.append('architecture')
+# from architecture.Generator import *
+# from architecture.Mapping_Network import *
+# from architecture.Style_Encoder import *
+# from architecture.Discriminator import *
+# from architecture.Model import *
+# from torch.autograd import Variable
 
 
-# Initialize parameters
-img_size = 256      # Image size
-style_dim = 64      # Dimension of style representation
-latent_dim = 16     # Dimension of latent space
-num_domains = 2     # Number of domains for style transfer
+# # Initialize parameters
+# img_size = 256      # Image size
+# style_dim = 64      # Dimension of style representation
+# latent_dim = 16     # Dimension of latent space
+# num_domains = 2     # Number of domains for style transfer
 
-# Instantiate models
-generator = Generator(img_size, style_dim)  # Create generator model
-discriminator = Discriminator(num_domains)  # Create discriminator model
-style_encoder = StyleEncoder(style_dim, num_domains)  # Create style encoder model
-mapping_network = MappingNetwork(latent_dim, style_dim, num_domains)  # Create mapping network model
+# # Instantiate models
+# generator = Generator(img_size, style_dim)  # Create generator model
+# discriminator = Discriminator(num_domains)  # Create discriminator model
+# style_encoder = StyleEncoder(style_dim, num_domains)  # Create style encoder model
+# mapping_network = MappingNetwork(latent_dim, style_dim, num_domains)  # Create mapping network model
 
-# Create test data
-real_img = torch.randn(1, 3, img_size, img_size)  # Real image tensor
-latent_code = torch.randn(1, latent_dim)         # Latent code tensor
-latent_code2 = torch.randn(1, latent_dim)        # Another latent code tensor
-domain_idx = torch.randint(0, num_domains, (1,)) # Domain index tensor
+# # Create test data
+# real_img = torch.randn(1, 3, img_size, img_size)  # Real image tensor
+# latent_code = torch.randn(1, latent_dim)         # Latent code tensor
+# latent_code2 = torch.randn(1, latent_dim)        # Another latent code tensor
+# domain_idx = torch.randint(0, num_domains, (1,)) # Domain index tensor
 
-# Create a collection of networks
-nets = Munch(generator=generator, discriminator=discriminator,
-             style_encoder=style_encoder, mapping_network=mapping_network)
+# # Create a collection of networks
+# nets = Munch(generator=generator, discriminator=discriminator,
+#              style_encoder=style_encoder, mapping_network=mapping_network)
 
-branch_idx = torch.tensor([0])  # Branch index for style encoding
-"""
-# Calculate generator loss
-g_total_loss, g_loss_munch = loss_generator(
-    nets, real_img, domain_idx, domain_idx,
-    z_trgs=(latent_code, latent_code2), branch_idx=branch_idx
-)
-print(f"Generator Total Loss: {g_total_loss.item()}")
-print(f"Generator Loss Components: Adv: {g_loss_munch.adv}, Sty: {g_loss_munch.sty}, DS: {g_loss_munch.ds}, Cyc: {g_loss_munch.cyc}")
+# branch_idx = torch.tensor([0])  # Branch index for style encoding
+# """
+# # Calculate generator loss
+# g_total_loss, g_loss_munch = loss_generator(
+#     nets, real_img, domain_idx, domain_idx,
+#     z_trgs=(latent_code, latent_code2), branch_idx=branch_idx
+# )
+# print(f"Generator Total Loss: {g_total_loss.item()}")
+# print(f"Generator Loss Components: Adv: {g_loss_munch.adv}, Sty: {g_loss_munch.sty}, DS: {g_loss_munch.ds}, Cyc: {g_loss_munch.cyc}")
 
-# Calculate discriminator loss
-d_total_loss, d_loss_munch = loss_discriminator(
-    nets, x_real=real_img, y_org=domain_idx, y_trg=domain_idx,
-    z_trg=latent_code, x_ref=None, lambda_reg=1.0
-)
-print(f"Discriminator Total Loss: {d_total_loss.item()}")
-print(f"Discriminator Loss Components: Real: {d_loss_munch.real}, Fake: {d_loss_munch.fake}, Reg: {d_loss_munch.reg}")
+# # Calculate discriminator loss
+# d_total_loss, d_loss_munch = loss_discriminator(
+#     nets, x_real=real_img, y_org=domain_idx, y_trg=domain_idx,
+#     z_trg=latent_code, x_ref=None, lambda_reg=1.0
+# )
+# print(f"Discriminator Total Loss: {d_total_loss.item()}")
+# print(f"Discriminator Loss Components: Real: {d_loss_munch.real}, Fake: {d_loss_munch.fake}, Reg: {d_loss_munch.reg}")
 
-"""
+# """
 
 # -----------------------------------------------------------test moving average ---------------------------------------------------
-import argparse
-parser = argparse.ArgumentParser()
-parser.add_argument('--img_size', type=int, default=256,
-                        help='Image resolution')
-parser.add_argument('--num_domains', type=int, default=2,
-                        help='Number of domains')
-parser.add_argument('--latent_dim', type=int, default=16,
-                        help='Latent vector dimension')
-parser.add_argument('--hidden_dim', type=int, default=512,
-                        help='Hidden dimension of mapping network')
-parser.add_argument('--style_dim', type=int, default=64,
-                        help='Style code dimension')
-params = parser.parse_args()
+# import argparse
+# parser = argparse.ArgumentParser()
+# parser.add_argument('--img_size', type=int, default=256,
+#                         help='Image resolution')
+# parser.add_argument('--num_domains', type=int, default=2,
+#                         help='Number of domains')
+# parser.add_argument('--latent_dim', type=int, default=16,
+#                         help='Latent vector dimension')
+# parser.add_argument('--hidden_dim', type=int, default=512,
+#                         help='Hidden dimension of mapping network')
+# parser.add_argument('--style_dim', type=int, default=64,
+#                         help='Style code dimension')
+# parser.add_argument('--var', type=int, default=64,
+#                         help='dummy var for testing')
+# parser.add_argument('--eval_iter', type=int, default=50,
+#                         help='evaluate every ...')
+# parser.add_argument('--save_iter', type=int, default=50,
+#                         help='Save model iteration')
+# parser.add_argument('--lambda_ds', type=float, default=1.,
+#                         help='Diversification style loss coefficient')
+# parser.add_argument('--resume_iter', type=int, default=0,
+#                         help='Start iteration')
+# parser.add_argument('--max_iter', type=int, default=200,
+#                         help='Style code dimension')
+# params = parser.parse_args()
 
-Model,CopyModel = Model(params)
+# #Model,CopyModel = Model(params)
+
+# trainer = Trainer(params)
 
 #moving_average(Model.generator, CopyModel.generator, beta=0.999)
-print(Model.keys())
+#print(Model.keys())
