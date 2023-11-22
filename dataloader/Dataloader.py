@@ -103,7 +103,7 @@ class StarDataset(Dataset):
         for i,domain in enumerate(domains):
             label = i #ith folder corresponds to ith label/domain
             path = os.path.join(root,domain)
-            
+            print((path))
             #for every image in a domain folder
             for fname in os.listdir(path):
                 labels.append(label)

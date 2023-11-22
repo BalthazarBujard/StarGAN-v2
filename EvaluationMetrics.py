@@ -88,8 +88,9 @@ class IncepV3(nn.Module):
         return x.view(x.size(0), -1)
 
 
-
-
+def get_eval_loader():
+    pass
+from tqdm import tqdm
 def calculateFID(paths, img_size=256, batch_size=50):
     path_real, path_fake = paths
 
@@ -100,10 +101,13 @@ def calculateFID(paths, img_size=256, batch_size=50):
     #loader_fake = get_eval_loader(path_fake, img_size, batch_size) 
 
     mu, cov = {"real": None ,"fake" : None}, {"real" :None , "fake" : None }
-    loaders = {"real":get_eval_loader(path_real, img_size, batch_size),"fake" :get_eval_loader(path_fake, img_size, batch_size)}
+    loaders = {"real":get_loader(path_real, img_size, batch_size),"fake" :get_loader(path_fake, img_size, batch_size)}
     for key in loaders:
         actvs = []
-        [actvs.append(inception(x.to(device))) for x in loaders[key]]
+        print(loaders[key])
+        for x in tqdm(loaders[key],total=len(loaders[key])) : 
+            print(inception(x.to(device)))
+            actvs.append(inception(x.to(device))) 
         actvs = torch.cat(actvs, dim=0).cpu().detach().numpy()
         mu[key]= np.mean(actvs, axis=0)
         cov[key] = np.cov(actvs, rowvar=False)
@@ -126,3 +130,95 @@ print(output1[:10])
 
 
 
+import matplotlib.pyplot as plt
+
+#eviter probleme avec matplotlib et torch
+#plt.plot()
+#plt.show()
+
+import torch
+from torchvision import transforms
+from dataloader.Dataloader import StarDataset, get_loader
+
+#%%
+def denormalize_tensor(t):
+    #convert from -1,1 to 0,1
+    return (t+1)/2
+#%% check dataset
+
+root = "train"
+fakeroot = "fake"
+train_dataset = StarDataset(root, chunk="train")
+
+
+#inputs = train_dataset[0]
+"""
+x, y = inputs.x,inputs.y
+x_ref1,x_ref2 = inputs.x_ref1,inputs.x_ref2
+z1,z2,y_trg = inputs.z1, inputs.z2, inputs.y_trg
+
+crop = transforms.RandomResizedCrop(256, scale=(0.8,1), ratio=(0.9,1.1))
+
+img=x
+
+img_c = crop(img)
+
+plt.imshow((torch.permute(img,[1,2,0])+1)/2)
+plt.title(f"image of domain : {y}")
+plt.show()
+
+plt.imshow((torch.permute(img_c,[1,2,0])+1)/2)
+plt.title(f"image of domain : {y}")
+plt.show()
+
+print(z1.shape)
+print(z2.shape)
+print(y)
+"""
+#%% check dataloader
+
+
+train_loader=get_loader(root,batch_size=8,img_size=256)
+
+
+loader_iter = iter(train_loader)
+inputs = next(loader_iter)
+
+x, y = inputs.x,inputs.y
+x_ref1,x_ref2 = inputs.x_ref1,inputs.x_ref2
+z1,z2,y_trg = inputs.z1, inputs.z2, inputs.y_trg
+
+
+print("Input image shape :",x.shape)
+print("Ref images shape :", x_ref1.shape,x_ref2.shape)
+print("Latent code z shape :", z1.shape,z2.shape)
+
+
+#%%viz
+img = torch.permute(denormalize_tensor(x[0]), [1,2,0])
+ref1 = torch.permute(denormalize_tensor(x_ref1[0]),[1,2,0])
+ref2 = torch.permute(denormalize_tensor(x_ref2[0]),[1,2,0])
+"""
+plt.subplot(131)
+plt.imshow(img)
+plt.subplot(132)
+plt.imshow(ref1)
+plt.subplot(133)
+plt.imshow(ref2)
+plt.show()
+"""
+#%% test with network
+#from architecture import Generator
+
+#img_size=256
+#style_dim=64
+#latent_dim=16
+
+#generator=Generator(img_size, style_dim)
+
+i= 0
+for x in (train_dataset) : 
+    print(type(x))
+    i+=1
+    print(i)
+print(calculateFID([root,root], img_size=256, batch_size=8))
