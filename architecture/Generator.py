@@ -21,12 +21,15 @@ class Generator(nn.Module):
     def __init__(self, img_size=256, style_dim=64, max_dim=512, n_layers=4):
         super().__init__()
         self.img_size = img_size
+        
         # Define the initial convolution layer to process RGB input
         self.from_rgb = nn.Conv2d(3, 64, 3, 1, 1) # conv 1*1
+        
         #self.from_rgb = nn.Conv2d(3,64,1,1,0) #vrai conv 1x1 sans padding
         # Initialize lists to store encoding and decoding blocks
         self.encode = nn.ModuleList()
         self.decode = nn.ModuleList()
+        
         # Define the final output layer
         self.to_rgb = nn.Sequential(
             nn.InstanceNorm2d(64, affine=True), # Layer Norma
@@ -34,20 +37,6 @@ class Generator(nn.Module):
             nn.Conv2d(64, 3, 1, 1, 0)) # conv 1*1
 
         # down/up-sampling blocks
-        
-        """
-        self.encode.append(ResBlk(64, 128, normalize=True, downsample=True))
-        self.decode.insert(0, AdainResBlk(128, 64, style_dim,upsample=True))
-
-        self.encode.append(ResBlk(128, 256, normalize=True, downsample=True))
-        self.decode.insert(0, AdainResBlk(256, 128, style_dim,upsample=True))  
-
-        self.encode.append(ResBlk(256, 512, normalize=True, downsample=True))
-        self.decode.insert(0, AdainResBlk(512, 256, style_dim,upsample=True)) 
-
-        self.encode.append(ResBlk(512, 512, normalize=True, downsample=True))
-        self.decode.insert(0, AdainResBlk(512, 512, style_dim,upsample=True))  
-        """
         dim_in = 64
         for _ in range(n_layers):
             dim_out = min(dim_in*2,max_dim)
@@ -56,19 +45,6 @@ class Generator(nn.Module):
             self.decode.insert(0, ResBlk(dim_out, dim_in, resampling='UP' ,normalizationMethod ='AdaIN', S_size=style_dim))
 
             dim_in=dim_out
-        
-        # self.encode.append(ResBlk(64, 128, resampling='DOWN' ,normalizationMethod ='IN', S_size=style_dim))
-        # self.decode.insert(0, ResBlk(128, 64, resampling='UP' ,normalizationMethod ='AdaIN', S_size=style_dim))
-
-        # self.encode.append(ResBlk(128, 256, resampling='DOWN' ,normalizationMethod ='IN', S_size=style_dim))
-        # self.decode.insert(0, ResBlk(256, 128, resampling='UP' ,normalizationMethod ='AdaIN', S_size=style_dim))
-
-        # self.encode.append(ResBlk(256, 512, resampling='DOWN' ,normalizationMethod ='IN', S_size=style_dim))
-        # self.decode.insert(0, ResBlk(512, 256, resampling='UP' ,normalizationMethod ='AdaIN', S_size=style_dim))
-
-        # self.encode.append(ResBlk(512, 512, resampling='DOWN' ,normalizationMethod ='IN', S_size=style_dim))
-        # self.decode.insert(0, ResBlk(512, 512, resampling='UP' ,normalizationMethod ='AdaIN', S_size=style_dim))
-
         
         # bottleneck blocks
 
