@@ -19,19 +19,23 @@ def adversarial_loss(discriminator, real_img=None, fake_img=None, y_org=None, y_
     Returns:
     Tensor: The combined adversarial loss.
     """
-    loss = torch.tensor(0.0)
-
+    loss = torch.tensor(0.0).to(torch.device('cuda' if torch.cuda.is_available() else 'cpu'))
+    
     if real_img is not None and y_org is not None:
         out_real = discriminator(real_img, y_org)
         real_label = torch.full_like(out_real, fill_value=1)
         real_loss = F.binary_cross_entropy_with_logits(out_real, real_label)
         loss += real_loss
+        
 
     if fake_img is not None and y_trg is not None:
         out_fake = discriminator(fake_img, y_trg)
         fake_label = torch.full_like(out_fake, fill_value=0)
         fake_loss = F.binary_cross_entropy_with_logits(out_fake, fake_label)
+        if loss.device!=fake_loss.device:
+            loss.to(fake_loss.device)
         loss += fake_loss
+    
     
     #raise exception if not called correctly with either real_img+y_org or fake_img+y_trg
 

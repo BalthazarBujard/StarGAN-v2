@@ -194,7 +194,7 @@ class Trainer(nn.Module) :
         self.to(self.device)
         
     def _reset_grad(self):
-        for optim in self.optims.values():
+        for optim in self.optimizers.values():
             optim.zero_grad()
 
     def _save_checkpoint(self, step):
@@ -204,7 +204,7 @@ class Trainer(nn.Module) :
     def _load_checkpoint(self, step):
         for cpt in self.checkpoints:
             cpt.load(step)
-        
+
     def train(self,loaders):
         params=self.params
         nets=self.networks
@@ -239,10 +239,11 @@ class Trainer(nn.Module) :
             x_ref1, x_ref2 = inputs.x_ref1, inputs.x_ref2
             y_trg = inputs.y_trg
             
+            
             #Train discriminator
             #with latent code
             d_loss, d_loss_latent = loss_discriminator(nets, x_org, y_org,
-                                                        y_trg, z_trg=[z1,z2])
+                                                        y_trg, z_trg=z1)
             
             self._reset_grad()
             d_loss.backward()
@@ -250,13 +251,13 @@ class Trainer(nn.Module) :
             
             #with reference image
             d_loss, d_loss_ref = loss_discriminator(nets, x_org, y_org,
-                                                        y_trg, x_ref=[x_ref1,x_ref2])
+                                                        y_trg, x_ref=x_ref1)
             
             self._reset_grad()
             d_loss.backward()
             optims.discriminator.setp()
             
-            #Train generator
+            # Train generator
             g_loss, g_loss_latent = loss_generator(nets, x_org, y_org, y_trg,
                                                     z_trg=[z1,z2],
                                                     lambda_ds=params.lambda_ds)
