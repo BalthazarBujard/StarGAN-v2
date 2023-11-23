@@ -87,6 +87,9 @@ class StarDataset(Dataset):
             
             inputs = Munch(x=img, y = label)
         
+        else :
+            raise Exception("Invalid chunk")
+        
                    
         
         return inputs
@@ -171,7 +174,7 @@ def get_loader(root, batch_size, img_size, chunk = "train"):
             transforms.Normalize([0.5]*3,[0.5]*3)
             ])
     
-    elif chunk == "test" or chunk=="eval" : transform = None #with transform as none we apply default transforms
+    elif chunk == "test" : transform = None #with transform as none we apply default transforms
     
     elif chunk == "eval":
         transform = transforms.Compose([
@@ -185,7 +188,7 @@ def get_loader(root, batch_size, img_size, chunk = "train"):
         return loader
     
     else :
-        raise Exception(f"Invalid chunk : {chunk}. Valid chunks are train or test")
+        raise Exception(f"Invalid chunk : {chunk}. Valid chunks are train, test or eval")
     
     #create dataset
     dataset = StarDataset(root, size = img_size, transform = transform, chunk=chunk)

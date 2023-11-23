@@ -96,18 +96,19 @@ def calculateFID(paths, img_size=256, batch_size=50):
     path_real, path_fake = paths
 
     print('Real Path %s \t path_fake %s...' % (path_real, path_fake))
-    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    device = torch.device("cpu")#torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     inception = IncepV3().eval().to(device)
     #loader_real = get_eval_loader(path_real, img_size, batch_size)
     #loader_fake = get_eval_loader(path_fake, img_size, batch_size) 
 
     mu, cov = {"real": None ,"fake" : None}, {"real" :None , "fake" : None }
-    loaders = {"real":get_loader(path_real, img_size, batch_size, chunk="eval"),"fake" :get_loader(path_fake, img_size, batch_size, chunk="eval")}
+    loaders = {"real":get_loader(path_real, batch_size, img_size, chunk="eval"),
+               "fake" :get_loader(path_fake, batch_size, img_size, chunk="eval")}
     for key in loaders:
         actvs = []
-        print(loaders[key])
-        for x in tqdm(loaders[key],total=len(loaders[key])) : 
-            print(inception(x.to(device)))
+        #print(loaders[key])
+        for x, _ in loaders[key]:#tqdm(loaders[key],total=len(loaders[key])) : 
+            print(x.shape)
             actvs.append(inception(x.to(device))) 
         actvs = torch.cat(actvs, dim=0).cpu().detach().numpy()
         mu[key]= np.mean(actvs, axis=0)
@@ -115,7 +116,7 @@ def calculateFID(paths, img_size=256, batch_size=50):
     fid_value = frechet_distance(mu["real"], cov["real"], mu["fake"], cov["fake"])
     return fid_value
 
-def claclulateFID_fromLoaders(loaders):
+def calculateFID_fromLoaders(loaders):
     #real_loader, fake_loader=loaders
     device = torch.device("cpu")#torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     inception = IncepV3().eval().to(device)
@@ -245,10 +246,22 @@ real_loader=torch.utils.data.DataLoader(real_dataset, batch_size=8)
 
 #%%
 
-fid=claclulateFID_fromLoaders([real_loader, fake_loader])
+# fake_loader=get_loader(fake_path,img_size=256, batch_size=16, chunk="eval")
+# real_loader = get_loader(real_path,img_size=256, batch_size=16, chunk="eval")
+loaders = {"real":get_loader(real_path, img_size=256, batch_size=16, chunk="eval"),"fake" :get_loader(fake_path, img_size=256, batch_size=16, chunk="eval")}
 
 
+for key in loaders:
+    for x,_ in loaders[key]:
+        print(x.shape)
 
+#%%
+fake_real_path = "../fake_imgs_real"
+
+#fid=claclulateFID_fromLoaders([real_loader, fake_loader])
+d = calculateFID([real_path,fake_real_path],img_size=256,batch_size=32)
+
+print(d)
 
 
 
