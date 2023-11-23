@@ -13,7 +13,7 @@ class MappingNetwork(nn.Module):
         style_dim (int, optional): The dimension of the style vector. Defaults to 64.
         num_domains (int, optional): The number of different domains for style encoding. Defaults to 2.
         """
-        super(MappingNetwork, self).__init__()
+        super().__init__()
         self.style_dim = style_dim
         # Shared layers are common across all domains
         self.shared_layers = nn.Sequential(
@@ -54,10 +54,10 @@ class MappingNetwork(nn.Module):
 
 
 
-# for test
-mapping_network = MappingNetwork(latent_dim=16, style_dim=64, num_domains=2)
+# # for test
+# mapping_network = MappingNetwork(latent_dim=16, style_dim=64, num_domains=2)
 
-latent_vector = torch.randn(10, 16)
-domain_labels = torch.randint(0, 2, (10,))
-output = mapping_network(latent_vector, domain_labels)
-print("Output shape:", output.shape)  # output desired [10, 64]
+# latent_vector = torch.randn(10, 16)
+# domain_labels = torch.randint(0, 2, (10,))
+# output = mapping_network(latent_vector, domain_labels)
+# print("Output shape:", output.shape)  # output desired [10, 64]

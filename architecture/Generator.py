@@ -80,10 +80,3 @@ class Generator(nn.Module):
         return self.to_rgb(x)
 
 
-style_length = 64
-batch_size = 1
-tensor = torch.rand(batch_size, 3, 256, 256)  # (batch_size, channels, height, width)
-style = torch.rand(batch_size, style_length)  # (batch_size, style_dim)
-generator_model = Generator()
-#print(generator_model)
-output = generator_model(tensor, style)
