@@ -58,33 +58,35 @@ class StarDataset(Dataset):
         
         
         
-        #get 2 ref images fro training
+        #get 2 ref images and 2 latent codes for training
         if self.chunk == "train":
             img_ref1, img_ref2 = np.random.choice(self.img_paths,size=2,replace=False)
             img_ref1 = Image.open(img_ref1).convert("RGB")
             img_ref2 = Image.open(img_ref2).convert("RGB")
-        
-        #should at least have resize and normalize (and toTensor obviously)
-        if self.transform is not None:
-            img = self.transform(img)
-            img_ref1 = self.transform(img_ref1)
-            img_ref2 = self.transform(img_ref2)
-        
-        
-        #generate 2 random latent codes from normal distribution and a random domain
-        z1 = torch.randn(self.latent_dim)
-        z2 = torch.randn(self.latent_dim)
-        y_trg = torch.randint(0, len(self.domains), ())
-        
-        
-        
-        if self.chunk=="train":
+            
+            #generate 2 random latent codes from normal distribution and a random domain
+            z1 = torch.randn(self.latent_dim)
+            z2 = torch.randn(self.latent_dim)
+            y_trg = torch.randint(0, len(self.domains), ())
+            
+            #should at least have resize and normalize (and toTensor obviously)
+            if self.transform is not None:
+                img = self.transform(img)
+                img_ref1 = self.transform(img_ref1)
+                img_ref2 = self.transform(img_ref2)
+            
             inputs = Munch(x = img, y=label, z1 = z1,
                            z2=z2, x_ref1 = img_ref1, x_ref2 = img_ref2,
                            y_trg = y_trg)
-            
+        
+        
+      
         elif self.chunk=="test":
+            if self.transform is not None:
+                img = self.transform(img)
+            
             inputs = Munch(x=img, y = label)
+            
         
         return inputs
     
@@ -103,7 +105,6 @@ class StarDataset(Dataset):
         for i,domain in enumerate(domains):
             label = i #ith folder corresponds to ith label/domain
             path = os.path.join(root,domain)
-            print((path))
             #for every image in a domain folder
             for fname in os.listdir(path):
                 labels.append(label)

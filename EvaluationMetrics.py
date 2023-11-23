@@ -27,7 +27,7 @@ def fid(mu_real, mu_fake, cov_real, cov_fake):
     
     d = np.sum(mu_real**2 - mu_fake**2) + np.trace(cov_real+cov_fake-2*crcf)
     
-    return d
+    return np.real(d)
 
 
 def compute_mu_cov() : 
@@ -90,6 +90,7 @@ class IncepV3(nn.Module):
 
 def get_eval_loader():
     pass
+
 from tqdm import tqdm
 def calculateFID(paths, img_size=256, batch_size=50):
     path_real, path_fake = paths
@@ -138,43 +139,27 @@ import matplotlib.pyplot as plt
 
 import torch
 from torchvision import transforms
-from dataloader.Dataloader import StarDataset, get_loader
+from dataloader.Dataloader import get_loader, Fetcher
 
 #%%
 def denormalize_tensor(t):
     #convert from -1,1 to 0,1
     return (t+1)/2
 #%% check dataset
+import os
+root = "../dataset/data/celeba_hq"
+train_root=os.path.join(root, "train")
+val_root=os.path.join(root, "val")
 
-root = "train"
-fakeroot = "fake"
-train_dataset = StarDataset(root, chunk="train")
+train_loader = get_loader(train_root, 8, 256, chunk="train")
+train_fetcher = Fetcher(train_loader)
+
+test_loader = get_loader(val_root, 8, 256, chunk="test")
+test_fetcher = Fetcher(test_loader)
 
 
-#inputs = train_dataset[0]
-"""
-x, y = inputs.x,inputs.y
-x_ref1,x_ref2 = inputs.x_ref1,inputs.x_ref2
-z1,z2,y_trg = inputs.z1, inputs.z2, inputs.y_trg
 
-crop = transforms.RandomResizedCrop(256, scale=(0.8,1), ratio=(0.9,1.1))
 
-img=x
-
-img_c = crop(img)
-
-plt.imshow((torch.permute(img,[1,2,0])+1)/2)
-plt.title(f"image of domain : {y}")
-plt.show()
-
-plt.imshow((torch.permute(img_c,[1,2,0])+1)/2)
-plt.title(f"image of domain : {y}")
-plt.show()
-
-print(z1.shape)
-print(z2.shape)
-print(y)
-"""
 #%% check dataloader
 
 
