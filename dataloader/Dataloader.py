@@ -15,7 +15,7 @@ from munch import Munch
 import torch
 from torchvision import transforms
 from torch.utils.data import Dataset, DataLoader, WeightedRandomSampler
-
+from torchvision.datasets import ImageFolder
 #ste seed for reproductibility 
 #torch.manual_seed(123)
 
@@ -167,6 +167,17 @@ def get_loader(root, batch_size, img_size, chunk = "train"):
             ])
     
     elif chunk == "test" : transform = None #with transform as none we apply default transforms
+    
+    elif chunk == "eval":
+        transform = transforms.Compose([
+            transforms.Resize([img_size, img_size]),
+            transforms.ToTensor(),
+            transforms.Normalize([0.5,0.5,0.5], [0.5,0.5,0.5])])
+        
+        dataset = ImageFolder(root,transform=transform)
+        loader = DataLoader(dataset, batch_size=batch_size)
+        
+        return loader
     
     else :
         raise Exception(f"Invalid chunk : {chunk}. Valid chunks are train or test")
