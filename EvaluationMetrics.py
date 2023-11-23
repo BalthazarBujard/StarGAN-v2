@@ -102,7 +102,7 @@ def calculateFID(paths, img_size=256, batch_size=50):
     #loader_fake = get_eval_loader(path_fake, img_size, batch_size) 
 
     mu, cov = {"real": None ,"fake" : None}, {"real" :None , "fake" : None }
-    loaders = {"real":get_loader(path_real, img_size, batch_size),"fake" :get_loader(path_fake, img_size, batch_size)}
+    loaders = {"real":get_loader(path_real, img_size, batch_size, chunk="eval"),"fake" :get_loader(path_fake, img_size, batch_size, chunk="eval")}
     for key in loaders:
         actvs = []
         print(loaders[key])
@@ -115,7 +115,27 @@ def calculateFID(paths, img_size=256, batch_size=50):
     fid_value = frechet_distance(mu["real"], cov["real"], mu["fake"], cov["fake"])
     return fid_value
 
-
+def claclulateFID_fromLoaders(loaders):
+    #real_loader, fake_loader=loaders
+    device = torch.device("cpu")#torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    inception = IncepV3().eval().to(device)
+    
+    #loaders = {"real":real_loader,"fake" : fake_loader}
+    mu, cov = {"real": None ,"fake" : None}, {"real" :None , "fake" : None }
+    for loader, key in zip(loaders, ["real", "fake"]):
+        actv=[]
+        for imgs, _ in loader:
+            # print(imgs.shape)
+            actv.append(inception(imgs.to(device)))
+        actv = torch.cat(actv, dim=0).cpu().detach().numpy()
+        mu[key]=np.mean(actv,axis=0)
+        cov[key]=np.cov(actv,rowvar=False)
+        # print(cov)
+    d=fid(mu["real"], mu["fake"], cov["real"], cov["fake"])
+    return d
+    
+#%%    
+    
 # Create an instance of the IncepV3 class
 model = IncepV3()
 
@@ -129,13 +149,13 @@ print(output1[:10])
 
 
 
-
+#%%
 
 import matplotlib.pyplot as plt
 
 #eviter probleme avec matplotlib et torch
-#plt.plot()
-#plt.show()
+plt.plot()
+plt.show()
 
 import torch
 from torchvision import transforms
@@ -151,59 +171,88 @@ root = "../dataset/data/celeba_hq"
 train_root=os.path.join(root, "train")
 val_root=os.path.join(root, "val")
 
-train_loader = get_loader(train_root, 8, 256, chunk="train")
+train_loader = get_loader(train_root, 8, 256, chunk="test") #chunk = test to not apply transform
 train_fetcher = Fetcher(train_loader)
 
 test_loader = get_loader(val_root, 8, 256, chunk="test")
 test_fetcher = Fetcher(test_loader)
 
 
+# i=1
+# while i<len(train_loader):
+#     train_inputs = next(train_fetcher) #trop long a aller jusqu'au bout
+#     #test_inputs=next(test_fetcher)
+#     print("batch:",i,"/",len(train_loader))
+#     i+=1
+i=1
+for inputs in test_loader:
+    print(i)
+    i+=1
 
 
-#%% check dataloader
 
 
-train_loader=get_loader(root,batch_size=8,img_size=256)
-
-
-loader_iter = iter(train_loader)
-inputs = next(loader_iter)
-
-x, y = inputs.x,inputs.y
-x_ref1,x_ref2 = inputs.x_ref1,inputs.x_ref2
-z1,z2,y_trg = inputs.z1, inputs.z2, inputs.y_trg
-
-
-print("Input image shape :",x.shape)
-print("Ref images shape :", x_ref1.shape,x_ref2.shape)
-print("Latent code z shape :", z1.shape,z2.shape)
-
-
-#%%viz
-img = torch.permute(denormalize_tensor(x[0]), [1,2,0])
-ref1 = torch.permute(denormalize_tensor(x_ref1[0]),[1,2,0])
-ref2 = torch.permute(denormalize_tensor(x_ref2[0]),[1,2,0])
-"""
-plt.subplot(131)
-plt.imshow(img)
-plt.subplot(132)
-plt.imshow(ref1)
-plt.subplot(133)
-plt.imshow(ref2)
-plt.show()
-"""
 #%% test with network
-#from architecture import Generator
+from architecture.Generator import Generator
 
 #img_size=256
 #style_dim=64
 #latent_dim=16
 
 #generator=Generator(img_size, style_dim)
+use_gpu = True if torch.cuda.is_available() else False
+model = torch.hub.load('facebookresearch/pytorch_GAN_zoo:hub',
+                        'PGAN', model_name='celebAHQ-256',
+                        pretrained=True, useGPU=use_gpu)
+#%% generate fake images and save them
+from torchvision.utils import save_image
 
-i= 0
-for x in (train_dataset) : 
-    print(type(x))
+num_images = 32
+noise, _ = model.buildNoiseData(num_images)
+with torch.no_grad():
+    generated_images = model.test(noise)
+
+# let's plot these images using torchvision and matplotlib
+# import matplotlib.pyplot as plt
+# import torchvision
+# grid = torchvision.utils.make_grid(generated_images.clamp(min=-1, max=1), scale_each=True, normalize=True)
+# plt.imshow(grid.permute(1, 2, 0).cpu().numpy())
+# plt.show()
+i=1
+for img in generated_images:
+    save_image(img,fp=f"../fake_imgs/fake/fake_img{i}.jpg")
     i+=1
-    print(i)
-print(calculateFID([root,root], img_size=256, batch_size=8))
+#%%
+from torchvision.datasets import ImageFolder
+
+fake_path="../fake_imgs"
+real_path="../real_imgs"
+
+size=256
+transform = transforms.Compose([
+    transforms.Resize([size, size]),
+    transforms.ToTensor(),
+    transforms.Normalize([0.5,0.5,0.5], [0.5,0.5,0.5])])
+
+fake_dataset=ImageFolder(fake_path,transform=transform)
+fake_loader=torch.utils.data.DataLoader(fake_dataset, batch_size=8)
+
+real_dataset=ImageFolder(real_path, transform = transform)
+real_loader=torch.utils.data.DataLoader(real_dataset, batch_size=8)
+
+# for imgs, _ in fake_loader:
+#     print(imgs.shape)
+
+#%%
+
+fid=claclulateFID_fromLoaders([real_loader, fake_loader])
+
+
+
+
+
+
+
+
+
+

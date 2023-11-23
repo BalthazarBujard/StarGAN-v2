@@ -86,7 +86,8 @@ class StarDataset(Dataset):
                 img = self.transform(img)
             
             inputs = Munch(x=img, y = label)
-            
+        
+                   
         
         return inputs
     
@@ -114,6 +115,9 @@ class StarDataset(Dataset):
         
         return img_paths, labels
                 
+
+
+
 
 #function to create a weighted sampler for a dataset given the labels list
 #protected function to be called only in this file
@@ -144,7 +148,7 @@ def get_loader(root, batch_size, img_size, chunk = "train"):
     img_size : int
         size of the output images
     chunk : str, optional
-        train, test or validation set. The default is "train".
+        train, val or evaluation set. The default is "train".
 
     Returns
     -------
@@ -167,7 +171,7 @@ def get_loader(root, batch_size, img_size, chunk = "train"):
             transforms.Normalize([0.5]*3,[0.5]*3)
             ])
     
-    elif chunk == "test" : transform = None #with transform as none we apply default transforms
+    elif chunk == "test" or chunk=="eval" : transform = None #with transform as none we apply default transforms
     
     else :
         raise Exception(f"Invalid chunk : {chunk}. Valid chunks are train or test")
