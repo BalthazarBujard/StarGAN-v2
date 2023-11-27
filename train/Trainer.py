@@ -1,6 +1,4 @@
 import matplotlib.pyplot as plt
-plt.plot();plt.show()
-
 import torch
 import torch.nn.functional as F
 import torch.nn as nn
@@ -268,7 +266,7 @@ class Trainer(nn.Module) :
                                                        y_trg, z_trg=z1)
             
             #add loss to plot
-            losses.d_latent.append(d_loss)
+            losses.d_latent.append(d_loss.cpu().detach().numpy())
             
             self._reset_grad()
             d_loss.backward()
@@ -277,7 +275,7 @@ class Trainer(nn.Module) :
             #with reference image
             d_loss, d_loss_ref = loss_discriminator(nets, x_org, y_org,
                                                         y_trg, x_ref=x_ref1)
-            losses.d_ref.append(d_loss)
+            losses.d_ref.append(d_loss.cpu().detach().numpy())
 
             
             self._reset_grad()
@@ -289,7 +287,7 @@ class Trainer(nn.Module) :
                                                     z_trgs=[z1,z2],
                                                     lambda_ds=params.lambda_ds)
             
-            losses.g_latend.append(g_loss)
+            losses.g_latent.append(g_loss.cpu().detach().numpy())
             
             self._reset_grad()
             g_loss.backward()
@@ -300,7 +298,7 @@ class Trainer(nn.Module) :
             g_loss, g_loss_ref = loss_generator(nets, x_org, y_org, y_trg,
                                                     x_refs=[x_ref1,x_ref2],
                                                     lambda_ds=params.lambda_ds)
-            losses.g_ref.append(g_loss)
+            losses.g_ref.append(g_loss.cpu().detach().numpy())
 
             self._reset_grad()
             g_loss.backward()
