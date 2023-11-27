@@ -164,6 +164,17 @@ def moving_average(model, model_copy, beta=0.999):
         param_test.data = torch.lerp(param.data, param_test.data, beta) 
 
 
+#proceedes to He inititlaization of all modules
+def he_init(module):
+    if isinstance(module, nn.Conv2d):
+        nn.init.kaiming_normal_(module.weight, mode='fan_in', nonlinearity='relu')
+        if module.bias is not None:
+            nn.init.constant_(module.bias, 0)
+    if isinstance(module, nn.Linear):
+        nn.init.kaiming_normal_(module.weight, mode='fan_in', nonlinearity='relu')
+        if module.bias is not None:
+            nn.init.constant_(module.bias, 0)
+
 class Trainer(nn.Module) : 
     def __init__(self, params):
         #what is in params? -> see train_test
@@ -196,6 +207,12 @@ class Trainer(nn.Module) :
 
         
         self.to(self.device)
+        
+        #init weights of main module (aka not copy)
+        for name, network in self.named_children():
+            if ('copy' not in name):
+               print('Initializing %s...' % name)
+               network.apply(he_init)
         
     def _reset_grad(self):
         for optim in self.optimizers.values():
