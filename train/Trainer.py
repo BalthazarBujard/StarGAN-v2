@@ -1,3 +1,6 @@
+import matplotlib.pyplot as plt
+plt.plot();plt.show()
+
 import torch
 import torch.nn.functional as F
 import torch.nn as nn
@@ -8,6 +11,7 @@ from train.loss import loss_generator, loss_discriminator
 from architecture.Model import *
 from dataloader.Dataloader import Fetcher
 import time
+import datetime
 import sys
 
 # #  Computes adversarial loss for discriminator.
@@ -165,7 +169,7 @@ class Trainer(nn.Module) :
         #what is in params? -> see train_test
         super().__init__()
         self.params = params
-        self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+        self.device = torch.device("cpu")#torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         self.networks, self.networks_copy = Model(params)
         self.optimizers = Munch()
         self.var = params.var
@@ -230,6 +234,7 @@ class Trainer(nn.Module) :
         print("Start training...")
         t0 = time.time()
         #add epochs viz
+        losses = Munch(g_latent=[],g_ref=[],d_latent=[],d_ref=[])
         for i in range(params.resume_iter,params.max_iter):
             
             inputs = next(input_fetcher)
@@ -243,7 +248,10 @@ class Trainer(nn.Module) :
             #Train discriminator
             #with latent code
             d_loss, d_loss_latent = loss_discriminator(nets, x_org, y_org,
-                                                        y_trg, z_trg=z1)
+                                                       y_trg, z_trg=z1)
+            
+            #add loss to plot
+            losses.d_latent.append(d_loss)
             
             self._reset_grad()
             d_loss.backward()
@@ -252,28 +260,35 @@ class Trainer(nn.Module) :
             #with reference image
             d_loss, d_loss_ref = loss_discriminator(nets, x_org, y_org,
                                                         y_trg, x_ref=x_ref1)
+            losses.d_ref.append(d_loss)
+
             
             self._reset_grad()
             d_loss.backward()
-            optims.discriminator.setp()
+            optims.discriminator.step()
             
             # Train generator
             g_loss, g_loss_latent = loss_generator(nets, x_org, y_org, y_trg,
-                                                    z_trg=[z1,z2],
+                                                    z_trgs=[z1,z2],
                                                     lambda_ds=params.lambda_ds)
+            
+            losses.g_latend.append(g_loss)
+            
             self._reset_grad()
             g_loss.backward()
             optims.generator.step()
-            otpims.mapping_network.step()
+            optims.mapping_network.step()
             optims.style_encoder.step()
             
             g_loss, g_loss_ref = loss_generator(nets, x_org, y_org, y_trg,
-                                                    x_ref=[x_ref1,x_ref2],
+                                                    x_refs=[x_ref1,x_ref2],
                                                     lambda_ds=params.lambda_ds)
+            losses.g_ref.append(g_loss)
+
             self._reset_grad()
             g_loss.backward()
             optims.generator.step()
-            otpims.mapping_network.step()
+            optims.mapping_network.step()
             optims.style_encoder.step()
             
             #moving average
@@ -290,21 +305,29 @@ class Trainer(nn.Module) :
             #log output
             if (i+1)%params.log_iter==0:
                 t=time.time()-t0
-                t=str(datetime.timedelta(seconds=elapsed))#[:-7]
+                t=str(datetime.timedelta(seconds=t))#[:-7]
                 
-                log = f"Time elapsed : {t}\nIteration {i}/{params.max_iter}"
+                log = f"Time elapsed : {t}\nIteration {i+1}/{params.max_iter}"
                 print(log)
                 
                 #losses
                 all_losses = dict()
-                for loss, prefix in zip([d_losses_latent, d_losses_ref, g_losses_latent, g_losses_ref],
+                for loss, prefix in zip([d_loss_latent, d_loss_ref, g_loss_latent, g_loss_ref],
                                         ['D/latent_', 'D/ref_', 'G/latent_', 'G/ref_']):
                     for key, value in loss.items():
                         #all_losses['D/latent_adv,....]
                         all_losses[prefix + key] = value
-                all_losses['G/lambda_ds'] = args.lambda_ds
+                all_losses['G/lambda_ds'] = params.lambda_ds
                 log += ' '.join(['%s: [%.4f]' % (key, value) for key, value in all_losses.items()])
                 print(log)
+                
+                #plot losses
+                plt.plot(losses.g_latent,label="Generator latent loss")
+                plt.plot(losses.g_ref,label="Generator ref loss")
+                plt.plot(losses.d_latent, label="Discriminator latent loss")
+                plt.plot(losses.d_ref, label="Discriminator ref loss")
+                plt.legend()
+                plt.show()
             
             
             #save model
