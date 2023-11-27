@@ -218,7 +218,7 @@ class Trainer(nn.Module) :
 
     def _save_checkpoint(self, step):
         for cpt in self.checkpoints:
-            cpt.save(step)
+            cpt.store_checkpoint(step)
 
     def _load_checkpoint(self, step):
         for cpt in self.checkpoints:
@@ -341,6 +341,7 @@ class Trainer(nn.Module) :
                 plt.plot(losses.g_ref,label="Generator ref loss")
                 plt.plot(losses.d_latent, label="Discriminator latent loss")
                 plt.plot(losses.d_ref, label="Discriminator ref loss")
+                plt.ylim(auto=True)
                 plt.legend()
                 plt.show()
             
