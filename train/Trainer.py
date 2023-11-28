@@ -8,6 +8,7 @@ from train.loss import loss_generator, loss_discriminator
 from architecture.Model import *
 from dataloader.Dataloader import Fetcher
 import time
+import datetime
 import sys
 
 # #  Computes adversarial loss for discriminator.
@@ -183,12 +184,12 @@ class Trainer(nn.Module) :
                     weight_decay=params.weight_decay)
                 
             self.checkpoints = [
-                ModelCheckpointHandler(os.path.join(params.checkpoint_dir, '{:06d}_networs.cpt'), data_parallel=True, **self.networks),
-                ModelCheckpointHandler(os.path.join(params.checkpoint_dir, '{:06d}__networs_copy.cpt'), data_parallel=True, **self.networks_copy),
+                ModelCheckpointHandler(os.path.join(params.checkpoint_dir, '{:06d}_networs.cpt'),  **self.networks),
+                ModelCheckpointHandler(os.path.join(params.checkpoint_dir, '{:06d}__networs_copy.cpt'), **self.networks_copy),
                 ModelCheckpointHandler(os.path.join(params.checkpoint_dir, '{:06d}_optims.cpt'), **self.optimizers)]
 
         else : 
-            self.checkpoints = [ModelCheckpointHandler(os.path.join(params.checkpoint_dir, '{:06d}__networs_copy.cpt'), data_parallel=True, **self.netwroks_copy)]
+            self.checkpoints = [ModelCheckpointHandler(os.path.join(params.checkpoint_dir, '{:06d}__networs_copy.cpt'), **self.netwroks_copy)]
 
         
         self.to(self.device)
@@ -199,11 +200,11 @@ class Trainer(nn.Module) :
 
     def _save_checkpoint(self, step):
         for cpt in self.checkpoints:
-            cpt.save(step)
+            cpt.store_checkpoint(step)
 
     def _load_checkpoint(self, step):
         for cpt in self.checkpoints:
-            cpt.load(step)
+            cpt.retrieve_checkpoint(step)
 
     def train(self,loaders):
         params=self.params
@@ -255,25 +256,25 @@ class Trainer(nn.Module) :
             
             self._reset_grad()
             d_loss.backward()
-            optims.discriminator.setp()
+            optims.discriminator.step()
             
             # Train generator
             g_loss, g_loss_latent = loss_generator(nets, x_org, y_org, y_trg,
-                                                    z_trg=[z1,z2],
+                                                    z_trgs=[z1,z2],
                                                     lambda_ds=params.lambda_ds)
             self._reset_grad()
             g_loss.backward()
             optims.generator.step()
-            otpims.mapping_network.step()
+            optims.mapping_network.step()
             optims.style_encoder.step()
             
             g_loss, g_loss_ref = loss_generator(nets, x_org, y_org, y_trg,
-                                                    x_ref=[x_ref1,x_ref2],
+                                                    x_refs=[x_ref1,x_ref2],
                                                     lambda_ds=params.lambda_ds)
             self._reset_grad()
             g_loss.backward()
             optims.generator.step()
-            otpims.mapping_network.step()
+            optims.mapping_network.step()
             optims.style_encoder.step()
             
             #moving average
@@ -290,19 +291,19 @@ class Trainer(nn.Module) :
             #log output
             if (i+1)%params.log_iter==0:
                 t=time.time()-t0
-                t=str(datetime.timedelta(seconds=elapsed))#[:-7]
+                t=str(datetime.timedelta(seconds=t))#[:-7]
                 
                 log = f"Time elapsed : {t}\nIteration {i}/{params.max_iter}"
                 print(log)
                 
                 #losses
                 all_losses = dict()
-                for loss, prefix in zip([d_losses_latent, d_losses_ref, g_losses_latent, g_losses_ref],
+                for loss, prefix in zip([d_loss_latent, d_loss_ref, g_loss_latent, g_loss_ref],
                                         ['D/latent_', 'D/ref_', 'G/latent_', 'G/ref_']):
                     for key, value in loss.items():
                         #all_losses['D/latent_adv,....]
                         all_losses[prefix + key] = value
-                all_losses['G/lambda_ds'] = args.lambda_ds
+                all_losses['G/lambda_ds'] = params.lambda_ds
                 log += ' '.join(['%s: [%.4f]' % (key, value) for key, value in all_losses.items()])
                 print(log)
             

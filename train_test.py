@@ -37,7 +37,7 @@ parser.add_argument('--var', type=int, default=64,
                         help='dummy var for testing')
 parser.add_argument('--eval_iter', type=int, default=50,
                         help='evaluate every ...')
-parser.add_argument('--save_iter', type=int, default=50,
+parser.add_argument('--save_iter', type=int, default=2,
                         help='Save model iteration')
 parser.add_argument('--lambda_ds', type=float, default=1.,
                         help='Diversification style loss coefficient')
@@ -63,7 +63,7 @@ parser.add_argument('--log_iter', type=int, default=1,
                         help='log out every ...')
 params = parser.parse_args()
 
-root="../dataset/data/celeba_hq/train"
+root="celeba_hq_256/train"
 
 #Model,CopyModel = Model(params)
 
