@@ -92,10 +92,10 @@ class StarDataset(Dataset):
         #extract imgs_paths and domains (labels) from the root directory
         #containing all imgs and domain folders
         
-        domains = os.listdir(root)
-        
+        domains = [domain for domain in os.listdir(root) if ".ipynb" not in domain] #extra condition because some bug in gpu server adds ipynb checkpoint to folder
+
         self.domains = range(len(domains))
-        
+                
         labels = [] #labels list
         img_paths=[] #img paths list
         
@@ -122,6 +122,7 @@ def _balanced_sampler(labels):
     
     #weights are the inverse of the count(distribution)
     #if there are more examples of a domain (label) their probability of being sampled are lower
+    #print(counts)
     weights = 1/counts 
     
     #for every sample (label) we assign a weight inverse of its distribution
@@ -180,7 +181,7 @@ def get_loader(root, batch_size, img_size, chunk = "train"):
         return loader
     
     else :
-        raise Exception(f"Invalid chunk : {chunk}. Valid chunks are train or test")
+        raise Exception(f"Invalid chunk : {chunk}. Valid chunks are train, test or eval")
     
     #create dataset
     dataset = StarDataset(root, size = img_size, transform = transform, chunk=chunk)

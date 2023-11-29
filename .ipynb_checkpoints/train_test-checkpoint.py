@@ -10,8 +10,6 @@ To be implmeented in the Trainer class
 
 import numpy as np
 import matplotlib.pyplot as plt
-plt.plot()
-plt.show()
 from architecture.Model import Model
 from dataloader.Dataloader import *
 from train.Trainer import *
@@ -63,8 +61,8 @@ parser.add_argument('--log_iter', type=int, default=1,
                         help='log out every ...')
 params = parser.parse_args()
 
-root="../dataset/data/celeba_hq/train"
-
+#root="../dataset/data/celeba_hq/train" #if local
+root = "../shared/stargan_folder/data/celeba_hq/train" #if gpu server
 #Model,CopyModel = Model(params)
 
 trainer = Trainer(params)
