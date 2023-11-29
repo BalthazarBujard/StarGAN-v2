@@ -182,7 +182,6 @@ class Trainer(nn.Module) :
         self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         self.networks, self.networks_copy = Model(params)
         self.optimizers = Munch()
-        self.var = params.var
 
         for key_network in ['generator', 'mapping_network', 'style_encoder', 'discriminator'] : 
             setattr(self, key_network, self.networks[key_network])
@@ -230,7 +229,6 @@ class Trainer(nn.Module) :
         nets=self.networks
         nets_copy=self.networks_copy
         optims=self.optimizers
-        var = self.var
         #loaders shouldhave a train, val and test/eval loader
         
         #get input fetcher
@@ -344,7 +342,7 @@ class Trainer(nn.Module) :
                 plt.plot(losses.g_ref,label="Generator ref loss")
                 plt.plot(losses.d_latent, label="Discriminator latent loss")
                 plt.plot(losses.d_ref, label="Discriminator ref loss")
-                plt.ylim(auto=True)
+                plt.ylim(-5,10)
                 plt.legend()
                 plt.show()
 
