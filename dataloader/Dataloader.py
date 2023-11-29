@@ -17,7 +17,7 @@ from torchvision import transforms
 from torch.utils.data import Dataset, DataLoader, WeightedRandomSampler
 from torchvision.datasets import ImageFolder
 #ste seed for reproductibility 
-torch.manual_seed(123)
+#torch.manual_seed(123)
 
 
 

@@ -63,7 +63,7 @@ parser.add_argument('--log_iter', type=int, default=1,
                         help='log out every ...')
 params = parser.parse_args()
 
-root="celeba_hq_256/train"
+root="../dataset/data/celeba_hq/train"
 
 #Model,CopyModel = Model(params)
 
