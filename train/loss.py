@@ -141,7 +141,7 @@ def loss_discriminator(nets, x_real, y_org, y_trg, z_trg=None, x_ref=None, lambd
             s_trg = nets.style_encoder(x_ref, y_trg)
         else:
             raise ValueError("Either z_trg or x_ref must be provided.")
-    x_fake = nets.generator(x_real, s_trg)
+        x_fake = nets.generator(x_real, s_trg)
     loss_fake = adversarial_loss(nets.discriminator, fake_img=x_fake, y_trg=y_trg)
 
     # Regularization term
