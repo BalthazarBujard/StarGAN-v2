@@ -11,6 +11,7 @@ from dataloader.Dataloader import Fetcher
 import time
 import datetime
 import sys
+from IPython.display import clear_output #for display
 
 # #  Computes adversarial loss for discriminator.
 # def adversarial_loss(discriminator, real_img, fake_img, real_label, fake_label, y_org=None, y_trg=None):
@@ -334,9 +335,12 @@ class Trainer(nn.Module) :
                         all_losses[prefix + key] = value
                 all_losses['G/lambda_ds'] = params.lambda_ds
                 log += ' '.join(['%s: [%.4f]' % (key, value) for key, value in all_losses.items()])
-                print(log)
+
+                clear_output(wait=True)
+                
                 
                 #plot losses
+                plt.clf()
                 plt.plot(losses.g_latent,label="Generator latent loss")
                 plt.plot(losses.g_ref,label="Generator ref loss")
                 plt.plot(losses.d_latent, label="Discriminator latent loss")
@@ -344,6 +348,8 @@ class Trainer(nn.Module) :
                 plt.ylim(auto=True)
                 plt.legend()
                 plt.show()
+
+                #print(log, end="\r")
             
             
             #save model

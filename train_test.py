@@ -31,8 +31,6 @@ parser.add_argument('--batch_size', type=int, default=8,
                         help='Training batch size')
 parser.add_argument('--style_dim', type=int, default=64,
                         help='Style code dimension')
-parser.add_argument('--var', type=int, default=64,
-                        help='dummy var for testing')
 parser.add_argument('--eval_iter', type=int, default=50,
                         help='evaluate every ...')
 parser.add_argument('--save_iter', type=int, default=2,
