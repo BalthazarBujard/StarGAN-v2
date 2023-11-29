@@ -29,7 +29,7 @@ parser.add_argument('--latent_dim', type=int, default=16,
                         help='Latent vector dimension')
 parser.add_argument('--hidden_dim', type=int, default=512,
                         help='Hidden dimension of mapping network')
-parser.add_argument('--batch_size', type=int, default=1,
+parser.add_argument('--batch_size', type=int, default=8,
                         help='Training batch size')
 parser.add_argument('--style_dim', type=int, default=64,
                         help='Style code dimension')
@@ -69,7 +69,7 @@ root="celeba_hq_256/train"
 
 trainer = Trainer(params)
 
-train_loader=train_loader = get_loader(root, params.batch_size, params.img_size)
+train_loader = get_loader(root, params.batch_size, params.img_size)
 loaders = Munch(train=train_loader)
 trainer.train(loaders)
 

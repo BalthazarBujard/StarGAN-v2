@@ -1,3 +1,4 @@
+import matplotlib.pyplot as plt
 import torch
 import torch.nn.functional as F
 import torch.nn as nn
@@ -161,12 +162,23 @@ def moving_average(model, model_copy, beta=0.999):
         param_test.data = torch.lerp(param.data, param_test.data, beta) 
 
 
+#proceedes to He inititlaization of all modules
+def he_init(module):
+    if isinstance(module, nn.Conv2d):
+        nn.init.kaiming_normal_(module.weight, mode='fan_in', nonlinearity='relu')
+        if module.bias is not None:
+            nn.init.constant_(module.bias, 0)
+    if isinstance(module, nn.Linear):
+        nn.init.kaiming_normal_(module.weight, mode='fan_in', nonlinearity='relu')
+        if module.bias is not None:
+            nn.init.constant_(module.bias, 0)
+
 class Trainer(nn.Module) : 
     def __init__(self, params):
         #what is in params? -> see train_test
         super().__init__()
         self.params = params
-        self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+        self.device = torch.device("cpu")#torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         self.networks, self.networks_copy = Model(params)
         self.optimizers = Munch()
         self.var = params.var
@@ -193,6 +205,12 @@ class Trainer(nn.Module) :
 
         
         self.to(self.device)
+        
+        #init weights of main module (aka not copy)
+        for name, network in self.named_children():
+            if ('copy' not in name):
+               print('Initializing %s...' % name)
+               network.apply(he_init)
         
     def _reset_grad(self):
         for optim in self.optimizers.values():
@@ -231,6 +249,7 @@ class Trainer(nn.Module) :
         print("Start training...")
         t0 = time.time()
         #add epochs viz
+        losses = Munch(g_latent=[],g_ref=[],d_latent=[],d_ref=[])
         for i in range(params.resume_iter,params.max_iter):
             
             inputs = next(input_fetcher)
@@ -244,7 +263,10 @@ class Trainer(nn.Module) :
             #Train discriminator
             #with latent code
             d_loss, d_loss_latent = loss_discriminator(nets, x_org, y_org,
-                                                        y_trg, z_trg=z1)
+                                                       y_trg, z_trg=z1)
+            
+            #add loss to plot
+            losses.d_latent.append(d_loss.cpu().detach().numpy())
             
             self._reset_grad()
             d_loss.backward()
@@ -253,6 +275,8 @@ class Trainer(nn.Module) :
             #with reference image
             d_loss, d_loss_ref = loss_discriminator(nets, x_org, y_org,
                                                         y_trg, x_ref=x_ref1)
+            losses.d_ref.append(d_loss.cpu().detach().numpy())
+
             
             self._reset_grad()
             d_loss.backward()
@@ -262,6 +286,9 @@ class Trainer(nn.Module) :
             g_loss, g_loss_latent = loss_generator(nets, x_org, y_org, y_trg,
                                                     z_trgs=[z1,z2],
                                                     lambda_ds=params.lambda_ds)
+            
+            losses.g_latent.append(g_loss.cpu().detach().numpy())
+            
             self._reset_grad()
             g_loss.backward()
             optims.generator.step()
@@ -271,6 +298,8 @@ class Trainer(nn.Module) :
             g_loss, g_loss_ref = loss_generator(nets, x_org, y_org, y_trg,
                                                     x_refs=[x_ref1,x_ref2],
                                                     lambda_ds=params.lambda_ds)
+            losses.g_ref.append(g_loss.cpu().detach().numpy())
+
             self._reset_grad()
             g_loss.backward()
             optims.generator.step()
@@ -293,7 +322,7 @@ class Trainer(nn.Module) :
                 t=time.time()-t0
                 t=str(datetime.timedelta(seconds=t))#[:-7]
                 
-                log = f"Time elapsed : {t}\nIteration {i}/{params.max_iter}"
+                log = f"Time elapsed : {t}\nIteration {i+1}/{params.max_iter}"
                 print(log)
                 
                 #losses
@@ -306,6 +335,15 @@ class Trainer(nn.Module) :
                 all_losses['G/lambda_ds'] = params.lambda_ds
                 log += ' '.join(['%s: [%.4f]' % (key, value) for key, value in all_losses.items()])
                 print(log)
+                
+                #plot losses
+                plt.plot(losses.g_latent,label="Generator latent loss")
+                plt.plot(losses.g_ref,label="Generator ref loss")
+                plt.plot(losses.d_latent, label="Discriminator latent loss")
+                plt.plot(losses.d_ref, label="Discriminator ref loss")
+                plt.ylim(auto=True)
+                plt.legend()
+                plt.show()
             
             
             #save model

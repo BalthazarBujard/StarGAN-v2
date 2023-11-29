@@ -17,7 +17,7 @@ from torchvision import transforms
 from torch.utils.data import Dataset, DataLoader, WeightedRandomSampler
 from torchvision.datasets import ImageFolder
 #ste seed for reproductibility 
-#torch.manual_seed(123)
+torch.manual_seed(123)
 
 
 
@@ -199,7 +199,7 @@ def get_loader(root, batch_size, img_size, chunk = "train"):
 class Fetcher:
     def __init__(self,loader):
         self.loader = loader
-        self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+        self.device = torch.device("cpu") #torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         
     def _fetch_inputs(self):
         #method to fetch next set of inputs
