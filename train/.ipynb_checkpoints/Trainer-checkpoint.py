@@ -5,7 +5,8 @@ import torch.nn as nn
 from munch import Munch
 import os
 from train.check_point_handler import *  
-from train.loss import loss_generator, loss_discriminator
+from train.loss import loss_discriminator, loss_generator#, loss_discriminator
+#from train.loss_cheat import loss_generator #,loss_generator #for debugging
 from architecture.Model import *
 from dataloader.Dataloader import Fetcher
 import time
@@ -248,7 +249,13 @@ def calculate_metrics (networks_copy, params, step, mode):
 
     domains = os.listdir(val_folder)
 
+    print(f"there are {len(domains)} domains")
+
     #generate images 
+    for trg_domain in domains:
+        #the source domain has to be different form the target domain
+        src_domain = [domain for domain in domains if domain!=trg_domain]
+        #we want to generate images from the source domain using the target domain as input
     
     raise NotImplementedError("calculate_metrics NOT IMPLEMENTED YET !")
 
