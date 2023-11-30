@@ -144,7 +144,7 @@ def get_loader(root, batch_size, img_size, chunk = "train"):
     img_size : int
         size of the output images
     chunk : str, optional
-        train, test or validation set. The default is "train".
+        train, test or eval set. The default is "train".
 
     Returns
     -------
