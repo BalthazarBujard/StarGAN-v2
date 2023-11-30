@@ -213,6 +213,9 @@ class Trainer(nn.Module) :
             #evaluation metrics
             if (i+1)%params.eval_iter==0:
                 #not implemented yet
+                #use in-training generator to generate a set of images to compute metrics FID (difference of distribution from real/fake imgs set)
+                #and LPIPS (measure perceived quality of generated images)
+                #use val folder to generate images
                 pass
             
                 
@@ -232,14 +235,27 @@ class Trainer(nn.Module) :
     @torch.no_grad()
     def evaluate(self):
         params = self.params
-        netwroks_copy = self.netwroks_copy
+        networks_copy = self.networks_copy
         resume_iter = params.resume_iter
         self._load_checkpoint(params.resume_iter)
-        calculate_metrics(netwroks_copy, params, step=resume_iter, mode='latent')
-        calculate_metrics(netwroks_copy, params, step=resume_iter, mode='reference')
+        calculate_metrics(networks_copy, params, step=resume_iter, mode='latent') #calculate metrics from latent vector
+        calculate_metrics(networks_copy, params, step=resume_iter, mode='reference') #claculate metrics from refernece image
 
 
-def calculate_metrics (netwroks_copy, params, step, mode):
+def calculate_metrics (networks_copy, params, step, mode):
+
+    val_folder = params.val_folder
+
+    domains = os.listdir(val_folder)
+
+    print(f"there are {len(domains)} domains")
+
+    #generate images 
+    for trg_domain in domains:
+        #the source domain has to be different form the target domain
+        src_domain = [domain for domain in domains if domain!=trg_domain]
+        #we want to generate images from the source domain using the target domain as input
+    
     raise NotImplementedError("calculate_metrics NOT IMPLEMENTED YET !")
 
 

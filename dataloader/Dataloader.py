@@ -24,7 +24,7 @@ from torchvision.datasets import ImageFolder
 class StarDataset(Dataset):
     def __init__(self, root, size=256, latent_dim = 16, transform=None, chunk="train"):
                 
-        self.img_paths, self.labels = self.create_dataset(root, chunk)
+        self.img_paths, self.labels = self.create_dataset(root)
         
         self.size=size
         self.latent_dim = latent_dim
@@ -88,9 +88,9 @@ class StarDataset(Dataset):
         
         return inputs
     
-    def create_dataset(self, root, chunk):
+    def create_dataset(self, root):
         #extract imgs_paths and domains (labels) from the root directory
-        #containing all imgs and domain folders
+        #containing all imgs in domain specific folders
         
         domains = [domain for domain in os.listdir(root) if ".ipynb" not in domain] #extra condition because some bug in gpu server adds ipynb checkpoint to folder
 
@@ -113,6 +113,38 @@ class StarDataset(Dataset):
         
         return img_paths, labels
                 
+class EvalDataset(Dataset):
+    #eval dataset only needs input images from a specific folder (no domain etc; directly from root)
+    def __init__(self, root, transform=None):
+        self.imgs_path = self._create_dataset(root)
+        self.imgs_path.sort()
+        self.transform=transform
+
+    def __len__(self):
+        return len(self.imgs_path)
+
+    def __getitem__(self,idx):
+        img_path = self.imgs_path[idx]
+        img = Image.open(img_path).convert("RGB")
+        if self.transform is not None:
+            img = self.transform(img)
+
+        return img 
+        
+    def _create_dataset(self, root):
+        #extract imgs_paths from a defined folder (i.e. domain specific during evaluation)
+        
+        domains = [domain for domain in os.listdir(root) if ".ipynb" not in domain] #extra condition because some bug in gpu server adds ipynb checkpoint to folder
+
+        self.domains = range(len(domains))
+                
+        img_paths=[] #img paths list
+        
+        for fname in os.listdir(root):
+            img_paths.append(os.path.join(root,fname))
+        
+        
+        return img_paths
 
 #function to create a weighted sampler for a dataset given the labels list
 #protected function to be called only in this file
@@ -132,7 +164,7 @@ def _balanced_sampler(labels):
 
 
 #function to create a dataset, fromthat dataset instantiate a dataloader and return it
-def get_loader(root, batch_size, img_size, chunk = "train"):
+def get_loader(root, batch_size, img_size, chunk = "train", imgnet_normalize=False):
     """
 
     Parameters
@@ -145,6 +177,8 @@ def get_loader(root, batch_size, img_size, chunk = "train"):
         size of the output images
     chunk : str, optional
         train, test or eval set. The default is "train".
+    imgnet_normalize : bool, optional
+        True if imagenet normalization (for fid training i guess???)
 
     Returns
     -------
@@ -166,16 +200,23 @@ def get_loader(root, batch_size, img_size, chunk = "train"):
             transforms.ToTensor(),
             transforms.Normalize([0.5]*3,[0.5]*3)
             ])
-    
+
+    #there is no test loader (?)
     elif chunk == "test" : transform = None #with transform as none we apply default transforms
     
     elif chunk == "eval":
+        mean = [0.5]*3
+        std = [0.5]*3
+        if imgnet_normalize == True:
+            mean = [0.485, 0.456, 0.406]
+            std = [0.229, 0.224, 0.225]   
+        
         transform = transforms.Compose([
             transforms.Resize([img_size, img_size]),
             transforms.ToTensor(),
-            transforms.Normalize([0.5,0.5,0.5], [0.5,0.5,0.5])])
+            transforms.Normalize(mean, std)])
         
-        dataset = ImageFolder(root,transform=transform)
+        dataset = EvalDataset(root,transform=transform)
         loader = DataLoader(dataset, batch_size=batch_size)
         
         return loader
