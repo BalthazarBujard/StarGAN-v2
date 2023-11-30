@@ -5,156 +5,14 @@ import torch.nn as nn
 from munch import Munch
 import os
 from train.check_point_handler import *  
-from train.loss import loss_generator, loss_discriminator
+from train.loss import loss_discriminator, loss_generator#, loss_discriminator
+#from train.loss_cheat import loss_generator #,loss_generator #for debugging
 from architecture.Model import *
 from dataloader.Dataloader import Fetcher
 import time
 import datetime
 import sys
 from IPython.display import clear_output #for display
-
-# #  Computes adversarial loss for discriminator.
-# def adversarial_loss(discriminator, real_img, fake_img, real_label, fake_label, y_org=None, y_trg=None):
-#     real_loss = torch.tensor(0.0)
-#     fake_loss = torch.tensor(0.0)
-#     if real_img is not None and y_org is not None:
-#         real_loss = F.binary_cross_entropy_with_logits(discriminator(real_img, y_org), real_label)
-#     if fake_img is not None and y_trg is not None:
-#         fake_loss = F.binary_cross_entropy_with_logits(discriminator(fake_img, y_trg), fake_label)
-#     return real_loss + fake_loss
-
-
-
-# # Calculates style reconstruction loss for style encoder.
-# def style_reconstruction_loss(style_encoder, generated_img, target_style, branch):
-#     # Predicts style from the generated image using the specified branch (domain from y_trg)
-#     predicted_style = style_encoder(generated_img, branch)
-#     # Calculates the mean absolute error between predicted and target styles
-#     return torch.mean(torch.abs(predicted_style - target_style))
-
-
-# # Computes style diversification loss for generator.
-# def style_diversification_loss(generator, input_img, style1, style2):
-#     # Generates two images from the same input image but with different styles
-#     generated_img1 = generator(input_img, style1)
-#     generated_img2 = generator(input_img, style2)
-#     # Calculates the mean absolute error between the two generated images
-#     return torch.mean(torch.abs(generated_img1 - generated_img2))
-
-# # Measures cycle consistency loss for generator.
-# def cycle_consistency_loss(generator, input_img, reconstructed_img):
-#     # Calculates the mean absolute error between the input and reconstructed images
-#     return torch.mean(torch.abs(reconstructed_img - input_img))
-
-
-# # Generator Loss Function
-# def loss_generator(nets, x_real, y_org, y_trg, z_trgs=None, x_refs=None, lambda_sty=1.0, lambda_ds=1.0, lambda_cyc=1.0):
-#     """
-#     Calculates the total loss for the generator.
-
-#     Args:
-#     nets (Munch): Contains generator, discriminator, style_encoder, and mapping_network.
-#     x_real (Tensor): Real images tensor.
-#     y_org (Tensor): Original domain indices.
-#     y_trg (Tensor): Target domain indices.
-#     z_trgs (Tuple[Tensor, Tensor], optional): Pair of latent codes for target styles.
-#     x_refs (Tuple[Tensor, Tensor], optional): Pair of reference images for target styles.
-#     branch_idx (int): Index of the style branch for encoding.
-#     lambda_sty, lambda_ds, lambda_cyc (float): Weights for style, diversification, and cycle losses.
-
-#     Returns:
-#     Tuple[Tensor, Munch]: Total generator loss and loss components as a Munch object.
-#     """
-#     if z_trgs is not None:
-#         z_trg, z_trg2 = z_trgs
-#         s_trg = nets.mapping_network(z_trg, y_trg)
-#         s_trg2 = nets.mapping_network(z_trg2, y_trg)
-#     elif x_refs is not None:
-#         x_ref, x_ref2 = x_refs
-#         s_trg = nets.style_encoder(x_ref, y_trg)
-#         s_trg2 = nets.style_encoder(x_ref2, y_trg)
-#     else:
-#         raise ValueError("Either z_trgs or x_refs must be provided.")
-
-#     # Generate fake images
-#     x_fake = nets.generator(x_real, s_trg)
-#     x_fake2 = nets.generator(x_real, s_trg2)
-
-#     # Compute losses
-#     out_fake = nets.discriminator(x_fake, y_trg)
-#     #TO DO : dont create out_fake outside as its not used, for ones_like, use the batch size of x_real/fake
-#     loss_adv = adversarial_loss(nets.discriminator, x_real, x_fake, torch.ones_like(out_fake), torch.zeros_like(out_fake), y_org, y_trg)
-#     loss_sty = style_reconstruction_loss(nets.style_encoder, x_fake, s_trg, y_trg)
-#     loss_ds = style_diversification_loss(nets.generator, x_real, s_trg, s_trg2)
-
-#     # Compute cycle consistency loss (use x_real for reconstruction)
-#     x_rec = nets.generator(x_fake, nets.style_encoder(x_real, y_org))
-
-#     loss_cyc = cycle_consistency_loss(nets.generator, x_real, x_rec)
-
-#     # Combined Loss
-#     total_loss = loss_adv + lambda_sty * loss_sty - lambda_ds * loss_ds + lambda_cyc * loss_cyc
-#     return total_loss, Munch(adv=loss_adv.item(), sty=loss_sty.item(), ds=loss_ds.item(), cyc=loss_cyc.item())
-
-
-# # Discriminator Loss Function
-# def loss_discriminator(nets, x_real, y_org, y_trg, z_trg=None, x_ref=None, lambda_reg=1.0):
-#     """
-#     Calculates the total loss for the discriminator.
-
-#     Args:
-#     nets (Munch): Contains generator, discriminator, style_encoder, and mapping_network.
-#     x_real (Tensor): Real images tensor.
-#     y_org (Tensor): Original domain indices.
-#     y_trg (Tensor): Target domain indices.
-#     z_trg (Tensor, optional): Latent code for target style.
-#     x_ref (Tensor, optional): Reference image for target style.
-#     lambda_reg (float): Weight for regularization loss.
-
-#     Returns:
-#     Tuple[Tensor, Munch]: Total discriminator loss and loss components as a Munch object.
-#     """
-#     # Compute real loss
-#     x_real.requires_grad_()
-#     out_real = nets.discriminator(x_real, y_org)
-#     loss_real = adversarial_loss(nets.discriminator, x_real, None, torch.ones_like(out_real), None, y_org)
-
-#     # Compute fake loss
-#     if z_trg is not None:
-#         s_trg = nets.mapping_network(z_trg, y_trg)
-#     elif x_ref is not None:
-#         s_trg = nets.style_encoder(x_ref, y_trg)
-#     else:
-#         raise ValueError("Either z_trg or x_ref must be provided.")
-#     x_fake = nets.generator(x_real, s_trg)
-#     out_fake = nets.discriminator(x_fake, y_trg)
-#     loss_fake = adversarial_loss(nets.discriminator, None, x_fake, None, torch.zeros_like(out_fake), y_trg)
-
-
-
-#     # Regularization term
-#     loss_reg = r1_reg(out_real, x_real)
-
-#     # Combined Loss
-#     total_loss = loss_real + loss_fake + lambda_reg * loss_reg
-#     return total_loss, Munch(real=loss_real.item(), fake=loss_fake, reg=loss_reg)
-
-
-# def r1_reg(out_real, x_real):
-#     """
-#     Computes the R1 regularization penalty.
-
-#     Args:
-#     out_real (Tensor): Output of the discriminator for real images.
-#     x_real (Tensor): Real images tensor.
-
-#     Returns:
-#     Tensor: R1 regularization penalty.
-#     """
-#     grad_real = torch.autograd.grad(outputs=out_real.sum(), inputs=x_real, create_graph=True)[0]
-#     grad_penalty = (grad_real.view(grad_real.size(0), -1).norm(2, dim=1) ** 2).mean()
-#     return grad_penalty
-
 
 
 def moving_average(model, model_copy, beta=0.999):
@@ -176,7 +34,7 @@ def he_init(module):
 
 class Trainer(nn.Module) : 
     def __init__(self, params):
-        #what is in params? -> see train_test
+        #what is in params? -> see train_test.py
         super().__init__()
         self.params = params
         self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -346,7 +204,7 @@ class Trainer(nn.Module) :
                 plt.legend()
                 plt.show()
 
-                #print(log, end="\r")
+                print(log, end="\r")
             
             
             #save model
@@ -356,6 +214,9 @@ class Trainer(nn.Module) :
             #evaluation metrics
             if (i+1)%params.eval_iter==0:
                 #not implemented yet
+                #use in-training generator to generate a set of images to compute metrics FID (difference of distribution from real/fake imgs set)
+                #and LPIPS (measure perceived quality of generated images)
+                #use val folder to generate images
                 pass
             
                 
@@ -375,14 +236,27 @@ class Trainer(nn.Module) :
     @torch.no_grad()
     def evaluate(self):
         params = self.params
-        netwroks_copy = self.netwroks_copy
+        networks_copy = self.networks_copy
         resume_iter = params.resume_iter
         self._load_checkpoint(params.resume_iter)
-        calculate_metrics(netwroks_copy, params, step=resume_iter, mode='latent')
-        calculate_metrics(netwroks_copy, params, step=resume_iter, mode='reference')
+        calculate_metrics(networks_copy, params, step=resume_iter, mode='latent') #calculate metrics from latent vector
+        calculate_metrics(networks_copy, params, step=resume_iter, mode='reference') #claculate metrics from refernece image
 
 
-def calculate_metrics (netwroks_copy, params, step, mode):
+def calculate_metrics (networks_copy, params, step, mode):
+
+    val_folder = params.val_folder
+
+    domains = os.listdir(val_folder)
+
+    print(f"there are {len(domains)} domains")
+
+    #generate images 
+    for trg_domain in domains:
+        #the source domain has to be different form the target domain
+        src_domain = [domain for domain in domains if domain!=trg_domain]
+        #we want to generate images from the source domain using the target domain as input
+    
     raise NotImplementedError("calculate_metrics NOT IMPLEMENTED YET !")
 
 

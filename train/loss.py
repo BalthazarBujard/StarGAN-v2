@@ -41,7 +41,19 @@ def adversarial_loss(discriminator, real_img=None, fake_img=None, y_org=None, y_
 
     return loss
 
+def adversarial_loss_balt(d_out, label):
+    """
+    Computes adversarial loss
 
+    Args:
+    d_out : discriminator output
+    label : 1 if real image 0 if fake image
+    """
+    assert label in [0,1]
+    labels = torch.full_like(d_out,fill_value=label)
+    loss = F.binary_cross_entropy_with_logits(d_out, labels)
+    return loss
+    
 
 # Calculates style reconstruction loss for style encoder.
 def style_reconstruction_loss(style_encoder, generated_img, branch, target_style):
@@ -132,7 +144,10 @@ def loss_discriminator(nets, x_real, y_org, y_trg, z_trg=None, x_ref=None, lambd
     x_real.requires_grad_() 
     out_real = nets.discriminator(x_real, y_org)
     loss_real = adversarial_loss(nets.discriminator, real_img=x_real, y_org=y_org)
-
+    
+    # Regularization term
+    loss_reg = r1_reg(out_real, x_real)
+    
     # Compute fake loss
     with torch.no_grad(): #explain why no grad ? F and E trained with generator
         if z_trg is not None:
@@ -144,8 +159,7 @@ def loss_discriminator(nets, x_real, y_org, y_trg, z_trg=None, x_ref=None, lambd
         x_fake = nets.generator(x_real, s_trg)
     loss_fake = adversarial_loss(nets.discriminator, fake_img=x_fake, y_trg=y_trg)
 
-    # Regularization term
-    loss_reg = r1_reg(out_real, x_real)
+    
 
     # Combined Loss
     total_loss = loss_real + loss_fake + lambda_reg * loss_reg
