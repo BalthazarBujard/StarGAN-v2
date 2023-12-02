@@ -22,9 +22,9 @@ from torchvision.datasets import ImageFolder
 
 
 class StarDataset(Dataset):
-    def __init__(self, root, size=256, latent_dim = 16, transform=None, chunk="train"):
+    def __init__(self, root, size=256, latent_dim = 16, transform=None, chunk="train", num_files=-1):
                 
-        self.img_paths, self.labels = self.create_dataset(root)
+        self.img_paths, self.labels = self.create_dataset(root, num_files)
         
         self.size=size
         self.latent_dim = latent_dim
@@ -88,13 +88,15 @@ class StarDataset(Dataset):
         
         return inputs
     
-    def create_dataset(self, root):
+    def create_dataset(self, root, num_files):
         #extract imgs_paths and domains (labels) from the root directory
         #containing all imgs in domain specific folders
         
         domains = [domain for domain in os.listdir(root) if ".ipynb" not in domain] #extra condition because some bug in gpu server adds ipynb checkpoint to folder
 
         self.domains = range(len(domains))
+
+        max_per_domain = num_files//len(domains) if num_files!=-1 else num_files 
                 
         labels = [] #labels list
         img_paths=[] #img paths list
@@ -104,8 +106,8 @@ class StarDataset(Dataset):
             label = i #ith folder corresponds to ith label/domain
             path = os.path.join(root,domain)
             
-            #for every image in a domain folder
-            for fname in os.listdir(path):
+            #for every (or max_per_domain if not all files used) image in a domain folder
+            for fname in os.listdir(path)[:max_per_domain]:
                 labels.append(label)
                 img_paths.append(os.path.join(path,fname))
         
@@ -164,7 +166,7 @@ def _balanced_sampler(labels):
 
 
 #function to create a dataset, fromthat dataset instantiate a dataloader and return it
-def get_loader(root, batch_size, img_size, chunk = "train", imgnet_normalize=False):
+def get_loader(root, batch_size, img_size, chunk = "train", num_files=-1, imgnet_normalize=False):
     """
 
     Parameters
@@ -177,6 +179,9 @@ def get_loader(root, batch_size, img_size, chunk = "train", imgnet_normalize=Fal
         size of the output images
     chunk : str, optional
         train, test or eval set. The default is "train".
+    
+    num_files : int, optional
+        total files in the loader. Default is -1 to have all files
     imgnet_normalize : bool, optional
         True if imagenet normalization (for fid training i guess???)
 
@@ -225,7 +230,7 @@ def get_loader(root, batch_size, img_size, chunk = "train", imgnet_normalize=Fal
         raise Exception(f"Invalid chunk : {chunk}. Valid chunks are train, test or eval")
     
     #create dataset
-    dataset = StarDataset(root, size = img_size, transform = transform, chunk=chunk)
+    dataset = StarDataset(root, size = img_size, transform = transform, chunk=chunk, num_files=num_files)
     
     #create sampler
     sampler = _balanced_sampler(dataset.labels)

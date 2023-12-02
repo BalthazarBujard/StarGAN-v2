@@ -13,7 +13,7 @@ import time
 import datetime
 import sys
 from IPython.display import clear_output #for display
-
+from torchvision.utils import make_grid #for plot
 
 def moving_average(model, model_copy, beta=0.999):
     for param, param_test in zip(model.parameters(), model_copy.parameters()):
@@ -107,120 +107,151 @@ class Trainer(nn.Module) :
         t0 = time.time()
         #add epochs viz
         losses = Munch(g_latent=[],g_ref=[],d_latent=[],d_ref=[])
-        for i in range(params.resume_iter,params.max_iter):
+
+        #number of epochs
+        max_iter = params.epochs*len(train_loader)
+        for epoch in range(params.epochs):
+            #for every batch in dataloader
+            for i in range(len(train_loader)): #ATTENTION POUR LES CONDITIONS DE SAVE, EVALUATE ET PLOT SI BOUCLE PAR EPOCH
+        #for i in range(params.resume_iter,params.max_iter):
+            
+                inputs = next(input_fetcher)
+                
+                x_org,y_org = inputs.x, inputs.y
+                z1, z2 = inputs.z1, inputs.z2
+                x_ref1, x_ref2 = inputs.x_ref1, inputs.x_ref2
+                y_trg = inputs.y_trg
+                
+                
+                #Train discriminator
+                #with latent code
+                d_loss, d_loss_latent = loss_discriminator(nets, x_org, y_org,
+                                                           y_trg, z_trg=z1)
+                
+                #add loss to plot
+                losses.d_latent.append(d_loss.cpu().detach().numpy())
+                
+                self._reset_grad()
+                d_loss.backward()
+                optims.discriminator.step()
+                
+                #with reference image
+                d_loss, d_loss_ref = loss_discriminator(nets, x_org, y_org,
+                                                            y_trg, x_ref=x_ref1)
+                losses.d_ref.append(d_loss.cpu().detach().numpy())
+    
+                
+                self._reset_grad()
+                d_loss.backward()
+                optims.discriminator.step()
+                
+                # Train generator
+                g_loss, g_loss_latent = loss_generator(nets, x_org, y_org, y_trg,
+                                                        z_trgs=[z1,z2],
+                                                        lambda_ds=params.lambda_ds)
+                
+                losses.g_latent.append(g_loss.cpu().detach().numpy())
+                
+                self._reset_grad()
+                g_loss.backward()
+                optims.generator.step()
+                optims.mapping_network.step()
+                optims.style_encoder.step()
+                
+                g_loss, g_loss_ref = loss_generator(nets, x_org, y_org, y_trg,
+                                                        x_refs=[x_ref1,x_ref2],
+                                                        lambda_ds=params.lambda_ds)
+                losses.g_ref.append(g_loss.cpu().detach().numpy())
+    
+                self._reset_grad()
+                g_loss.backward()
+                optims.generator.step()
+                optims.mapping_network.step()
+                optims.style_encoder.step()
+                
+                #moving average
+                #apply moving average to network copy used for eval/test
+                #only applied to generator modules (generator, mapp, encoder)
+                moving_average(nets.generator, nets_copy.generator)
+                moving_average(nets.mapping_network, nets_copy.mapping_network)
+                moving_average(nets.style_encoder, nets_copy.style_encoder)
+                
+                #update lambda ds with linear decay
+                if params.lambda_ds>0:
+                    params.lambda_ds -= l_ds_init/max_iter#params.max_iter
+                    
+                #log output
+                if (i+1)%params.log_iter==0:
+                    t=time.time()-t0
+                    t=str(datetime.timedelta(seconds=t))#[:-7]
+                    
+                    log = f"Time elapsed : {t}\nEpoch : {epoch}/{params.epochs}, Batch {i+1}/{len(train_loader)}\n"#{params.max_iter}"
+                    print(log)
+                    
+                    #losses
+                    all_losses = dict()
+                    for loss, prefix in zip([d_loss_latent, d_loss_ref, g_loss_latent, g_loss_ref],
+                                            ['D/latent_', 'D/ref_', 'G/latent_', 'G/ref_']):
+                        for key, value in loss.items():
+                            #all_losses['D/latent_adv,....]
+                            all_losses[prefix + key] = value
+                    all_losses['G/lambda_ds'] = params.lambda_ds
+                    log += ' '.join(['%s: [%.4f]' % (key, value) for key, value in all_losses.items()])
+    
+                    clear_output(wait=True)
+                    
+                    
+                    #plot losses
+                    plt.plot(losses.g_latent,label="Generator latent loss")
+                    plt.plot(losses.g_ref,label="Generator ref loss")
+                    plt.plot(losses.d_latent, label="Discriminator latent loss")
+                    plt.plot(losses.d_ref, label="Discriminator ref loss")
+                    #plt.ylim(-5,10)
+                    plt.legend()
+                    plt.show()
+    
+                    print(log, end="\r")
+    
+    
+                #show example during training on val dataset 
+                
+                #save model
+                if (i+1)%params.save_iter==0:
+                    self._save_checkpoint(step=i+1)
+                
+                #evaluation metrics
+                if (i+1)%params.eval_iter==0:
+                    #not implemented yet
+                    #use in-training generator to generate a set of images to compute metrics FID (difference of distribution from real/fake imgs set)
+                    #and LPIPS (measure perceived quality of generated images)
+                    #use val folder to generate images
+                    pass
+            
+                
+            #show example at the end of every epoch
+            generator = self.networks.generator
+            mn = self.networks.mapping_network
             
             inputs = next(input_fetcher)
-            
             x_org,y_org = inputs.x, inputs.y
             z1, z2 = inputs.z1, inputs.z2
             x_ref1, x_ref2 = inputs.x_ref1, inputs.x_ref2
             y_trg = inputs.y_trg
             
+            style = mn(z1,y_trg)
+            input_img=x_org
             
-            #Train discriminator
-            #with latent code
-            d_loss, d_loss_latent = loss_discriminator(nets, x_org, y_org,
-                                                       y_trg, z_trg=z1)
+            x_fake=generator(input_img,style)
             
-            #add loss to plot
-            losses.d_latent.append(d_loss.cpu().detach().numpy())
+            x_n = [(x-x.min())/(x.max()-x.min()) for x in x_fake]
             
-            self._reset_grad()
-            d_loss.backward()
-            optims.discriminator.step()
+            grid = make_grid(x_n)
             
-            #with reference image
-            d_loss, d_loss_ref = loss_discriminator(nets, x_org, y_org,
-                                                        y_trg, x_ref=x_ref1)
-            losses.d_ref.append(d_loss.cpu().detach().numpy())
-
-            
-            self._reset_grad()
-            d_loss.backward()
-            optims.discriminator.step()
-            
-            # Train generator
-            g_loss, g_loss_latent = loss_generator(nets, x_org, y_org, y_trg,
-                                                    z_trgs=[z1,z2],
-                                                    lambda_ds=params.lambda_ds)
-            
-            losses.g_latent.append(g_loss.cpu().detach().numpy())
-            
-            self._reset_grad()
-            g_loss.backward()
-            optims.generator.step()
-            optims.mapping_network.step()
-            optims.style_encoder.step()
-            
-            g_loss, g_loss_ref = loss_generator(nets, x_org, y_org, y_trg,
-                                                    x_refs=[x_ref1,x_ref2],
-                                                    lambda_ds=params.lambda_ds)
-            losses.g_ref.append(g_loss.cpu().detach().numpy())
-
-            self._reset_grad()
-            g_loss.backward()
-            optims.generator.step()
-            optims.mapping_network.step()
-            optims.style_encoder.step()
-            
-            #moving average
-            #apply moving average to network copy used for eval/test
-            #only applied to generator modules (generator, mapp, encoder)
-            moving_average(nets.generator, nets_copy.generator)
-            moving_average(nets.mapping_network, nets_copy.mapping_network)
-            moving_average(nets.style_encoder, nets_copy.style_encoder)
-            
-            #update lambda ds with linear decay
-            if params.lambda_ds>0:
-                params.lambda_ds -= l_ds_init/params.max_iter
-                
-            #log output
-            if (i+1)%params.log_iter==0:
-                t=time.time()-t0
-                t=str(datetime.timedelta(seconds=t))#[:-7]
-                
-                log = f"Time elapsed : {t}\nIteration {i+1}/{params.max_iter}"
-                print(log)
-                
-                #losses
-                all_losses = dict()
-                for loss, prefix in zip([d_loss_latent, d_loss_ref, g_loss_latent, g_loss_ref],
-                                        ['D/latent_', 'D/ref_', 'G/latent_', 'G/ref_']):
-                    for key, value in loss.items():
-                        #all_losses['D/latent_adv,....]
-                        all_losses[prefix + key] = value
-                all_losses['G/lambda_ds'] = params.lambda_ds
-                log += ' '.join(['%s: [%.4f]' % (key, value) for key, value in all_losses.items()])
-
-                clear_output(wait=True)
-                
-                
-                #plot losses
-                plt.plot(losses.g_latent,label="Generator latent loss")
-                plt.plot(losses.g_ref,label="Generator ref loss")
-                plt.plot(losses.d_latent, label="Discriminator latent loss")
-                plt.plot(losses.d_ref, label="Discriminator ref loss")
-                plt.ylim(-5,10)
-                plt.legend()
-                plt.show()
-
-                print(log, end="\r")
-            
-            
-            #save model
-            if (i+1)%params.save_iter==0:
-                self._save_checkpoint(step=i+1)
-            
-            #evaluation metrics
-            if (i+1)%params.eval_iter==0:
-                #not implemented yet
-                #use in-training generator to generate a set of images to compute metrics FID (difference of distribution from real/fake imgs set)
-                #and LPIPS (measure perceived quality of generated images)
-                #use val folder to generate images
-                pass
-            
-                
-            
+            imgs=torch.permute(grid, [1,2,0]).cpu().detach().numpy()
+                        
+            plt.figure(figsize=(10,5))
+            plt.imshow(imgs)
+            plt.show()
             
             
         
