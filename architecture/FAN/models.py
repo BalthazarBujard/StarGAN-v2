@@ -2,7 +2,10 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import math
-from core.coord_conv import CoordConvTh
+from collections import namedtuple
+from munch import Munch
+from copy import deepcopy
+from .coord_conv import CoordConvTh
 
 
 def conv3x3(in_planes, out_planes, strd=1, padding=1,
@@ -133,7 +136,7 @@ class HourGlass(nn.Module):
         low3 = low2
         low3 = self._modules['b3_' + str(level)](low3)
 
-        up2 = F.upsample(low3, scale_factor=2, mode='nearest')
+        up2 = F.interpolate(low3, scale_factor=2, mode='nearest')
 
         return up1 + up2
 
@@ -143,27 +146,18 @@ class HourGlass(nn.Module):
 
 class FAN(nn.Module):
 
-    def __init__(self, num_modules=1, end_relu=False, gray_scale=False,
-                 num_landmarks=68):
+    def __init__(self, num_modules=1, end_relu=False, num_landmarks=98, pretrained_file=None):
         super(FAN, self).__init__()
         self.num_modules = num_modules
-        self.gray_scale = gray_scale
         self.end_relu = end_relu
         self.num_landmarks = num_landmarks
 
-        # Base part
-        if self.gray_scale:
-            self.conv1 = CoordConvTh(x_dim=256, y_dim=256,
+        self.conv1 = CoordConvTh(x_dim=256, y_dim=256,
                                      with_r=True, with_boundary=False,
                                      in_channels=3, out_channels=64,
                                      kernel_size=7,
                                      stride=2, padding=3)
-        else:
-            self.conv1 = CoordConvTh(x_dim=256, y_dim=256,
-                                     with_r=True, with_boundary=False,
-                                     in_channels=3, out_channels=64,
-                                     kernel_size=7,
-                                     stride=2, padding=3)
+        
         self.bn1 = nn.BatchNorm2d(64)
         self.conv2 = ConvBlock(64, 128)
         self.conv3 = ConvBlock(128, 128)
@@ -189,6 +183,10 @@ class FAN(nn.Module):
                     'bl' + str(hg_module), nn.Conv2d(256, 256, kernel_size=1, stride=1, padding=0))
                 self.add_module('al' + str(hg_module), nn.Conv2d(num_landmarks+1,
                                                                  256, kernel_size=1, stride=1, padding=0))
+
+        #load pretrained model
+        if pretrained_file != None:
+            self.load_state_dict(pretrained_file)
 
     def forward(self, x):
         x, _ = self.conv1(x)
@@ -226,3 +224,125 @@ class FAN(nn.Module):
                 previous = previous + ll + tmp_out_
 
         return outputs, boundary_channels
+
+    @torch.no_grad()
+    def get_heatmap(self, x, b_preprocess=True):
+        ''' outputs 0-1 normalized heatmap '''
+        x = F.interpolate(x, size=256, mode='bilinear')
+        x_01 = x*0.5 + 0.5
+        outputs, _ = self(x_01)
+        heatmaps = outputs[-1][:, :-1, :, :]
+        scale_factor = x.size(2) // heatmaps.size(2)
+        if b_preprocess:
+            heatmaps = F.interpolate(heatmaps, scale_factor=scale_factor,
+                                     mode='bilinear', align_corners=True)
+            heatmaps = preprocess(heatmaps)
+        return heatmaps
+
+""" 
+Taken from starganv2 git
+"""
+def normalize(x, eps=1e-6):
+    """Apply min-max normalization."""
+    x = x.contiguous()
+    N, C, H, W = x.size()
+    x_ = x.view(N*C, -1)
+    max_val = torch.max(x_, dim=1, keepdim=True)[0]
+    min_val = torch.min(x_, dim=1, keepdim=True)[0]
+    x_ = (x_ - min_val) / (max_val - min_val + eps)
+    out = x_.view(N, C, H, W)
+    return out
+
+
+def truncate(x, thres=0.1):
+    """Remove small values in heatmaps."""
+    return torch.where(x < thres, torch.zeros_like(x), x)
+
+
+def resize(x, p=2):
+    """Resize heatmaps."""
+    return x**p
+
+
+def shift(x, N):
+    """Shift N pixels up or down."""
+    up = N >= 0
+    N = abs(N)
+    _, _, H, W = x.size()
+    head = torch.arange(N)
+    tail = torch.arange(H-N)
+
+    if up:
+        head = torch.arange(H-N)+N
+        tail = torch.arange(N)
+    else:
+        head = torch.arange(N) + (H-N)
+        tail = torch.arange(H-N)
+
+    # permutation indices
+    perm = torch.cat([head, tail]).to(x.device)
+    out = x[:, :, perm, :]
+    return out
+
+
+IDXPAIR = namedtuple('IDXPAIR', 'start end')
+index_map = Munch(chin=IDXPAIR(0 + 8, 33 - 8),
+                  eyebrows=IDXPAIR(33, 51),
+                  eyebrowsedges=IDXPAIR(33, 46),
+                  nose=IDXPAIR(51, 55),
+                  nostrils=IDXPAIR(55, 60),
+                  eyes=IDXPAIR(60, 76),
+                  lipedges=IDXPAIR(76, 82),
+                  lipupper=IDXPAIR(77, 82),
+                  liplower=IDXPAIR(83, 88),
+                  lipinner=IDXPAIR(88, 96))
+OPPAIR = namedtuple('OPPAIR', 'shift resize')
+
+
+def preprocess(x):
+    """Preprocess 98-dimensional heatmaps."""
+    N, C, H, W = x.size()
+    x = truncate(x)
+    x = normalize(x)
+
+    sw = H // 256
+    operations = Munch(chin=OPPAIR(0, 3),
+                       eyebrows=OPPAIR(-7*sw, 2),
+                       nostrils=OPPAIR(8*sw, 4),
+                       lipupper=OPPAIR(-8*sw, 4),
+                       liplower=OPPAIR(8*sw, 4),
+                       lipinner=OPPAIR(-2*sw, 3))
+
+    for part, ops in operations.items():
+        start, end = index_map[part]
+        x[:, start:end] = resize(shift(x[:, start:end], ops.shift), ops.resize)
+
+    zero_out = torch.cat([torch.arange(0, index_map.chin.start),
+                          torch.arange(index_map.chin.end, 33),
+                          torch.LongTensor([index_map.eyebrowsedges.start,
+                                            index_map.eyebrowsedges.end,
+                                            index_map.lipedges.start,
+                                            index_map.lipedges.end])])
+    x[:, zero_out] = 0
+
+    start, end = index_map.nose
+    x[:, start+1:end] = shift(x[:, start+1:end], 4*sw)
+    x[:, start:end] = resize(x[:, start:end], 1)
+
+    start, end = index_map.eyes
+    x[:, start:end] = resize(x[:, start:end], 1)
+    x[:, start:end] = resize(shift(x[:, start:end], -8), 3) + \
+        shift(x[:, start:end], -24)
+
+    # Second-level mask
+    x2 = deepcopy(x)
+    x2[:, index_map.chin.start:index_map.chin.end] = 0  # start:end was 0:33
+    x2[:, index_map.lipedges.start:index_map.lipinner.end] = 0  # start:end was 76:96
+    x2[:, index_map.eyebrows.start:index_map.eyebrows.end] = 0  # start:end was 33:51
+
+    x = torch.sum(x, dim=1, keepdim=True)  # (N, 1, H, W)
+    x2 = torch.sum(x2, dim=1, keepdim=True)  # mask without faceline and mouth
+
+    x[x != x] = 0  # set nan to zero
+    x2[x != x] = 0  # set nan to zero
+    return x.clamp_(0, 1), x2.clamp_(0, 1)

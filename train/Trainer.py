@@ -64,9 +64,9 @@ class Trainer(nn.Module) :
         
         self.to(self.device)
         
-        #init weights of main module (aka not copy)
+        #init weights of main module (aka not copy nor FAN)
         for name, network in self.named_children():
-            if ('copy' not in name):
+            if ('copy' not in name) and ('fan' not in name):
                print('Initializing %s...' % name)
                network.apply(he_init)
         
@@ -121,7 +121,9 @@ class Trainer(nn.Module) :
                 z1, z2 = inputs.z1, inputs.z2
                 x_ref1, x_ref2 = inputs.x_ref1, inputs.x_ref2
                 y_trg = inputs.y_trg
-                
+
+                #landmark mask -> to be used if celeba_hq data; used in Generator ! (to be implemented)
+                #masks = nets.fan.get_heatmap(x_org)
                 
                 #Train discriminator
                 #with latent code
