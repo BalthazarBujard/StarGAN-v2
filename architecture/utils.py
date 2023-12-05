@@ -1,4 +1,3 @@
-import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -11,15 +10,15 @@ import math
 
 class AdaIN(nn.Module):
     """
-        Initialize the AdainResBlk module.
+        Applies Instance Normalization over a 4D input (a mini-batch of 2D inputs with additional channel dimension)
+        The mean and standard-deviation are calculated per-dimension separately for each object in a mini-batch
+        Different from BN layers, here µ(x) and σ(x) are computed across spatial dimensions independently for each channel and each sample
+        
         style_dim (int): The dimension of the style vector. Defaults to 64.
         num_features (int): dimension of the input feature map  
     """
     def __init__(self, style_dim, num_features):
         super().__init__()
-        # Applies Instance Normalization over a 4D input (a mini-batch of 2D inputs with additional channel dimension)
-        # The mean and standard-deviation are calculated per-dimension separately for each object in a mini-batch
-        # Different from BN layers, here µ(x) and σ(x) are computed across spatial dimensions independently for each channel and each sample
         self.norm = nn.InstanceNorm2d(num_features,affine=False)
         # Fully connected layer
         #  The factor of 2 is because the output is split into two parts: one for scaling (gamma) and one for shifting (beta) during normalization.
@@ -38,9 +37,10 @@ class AdaIN(nn.Module):
         """
         # The forward method takes two inputs: x is the input tensor to be normalized, and s is the style tensor.
         h = self.fc(s)
+        
         # reshape to (batch_size, num_features*2, 1, 1)
-        # h = h.view(h.size(0), h.size(1), 1, 1)
         h = torch.reshape(h,(h.size(0), h.size(1), 1, 1))
+        
         # retrieve gamma and beta from h
         # Splits the tensor h into 2 sub-tensors (gamma and beta) along dimension 1
         gamma, beta = torch.tensor_split(h, 2, dim=1) 
@@ -154,82 +154,3 @@ class ResBlk(nn.Module):
     def forward(self, x, s=None):
         # Return the sum of skip connection and convolution block output, divided by sqrt(2) to get unit variance
         return (self.skip_con(x) + self.convBlock(x, s)) / math.sqrt(2)
-
-#Redundant, replaced by ResBlk
-
-class AdainResBlk(nn.Module):
-    def __init__(self, input_dim, output_dim, style_dim=64, activate=nn.LeakyReLU(0.2), upsample=False):
-        """
-        Initialize the AdainResBlk module.
-
-        Parameters:
-        input_dim (int): The number of input channels.
-        output_dim (int): The number of output channels.
-        style_dim (int, optional): The dimension of the style vector. Defaults to 64.
-        activate (torch.nn.Module, optional): The activation function to use. Defaults to LeakyReLU with a negative slope of 0.2.
-        upsample (bool, optional): Flag to determine if the input should be upsampled. Defaults to False.
-        """
-        super(AdainResBlk, self).__init__()
-        self.upsample = upsample  # Whether to upsample the input
-        self.activate = activate  # Activation function
-        self.adjust_dim = input_dim != output_dim  # Check if input and output dimensions are different
-
-        # Create AdaIN and convolutional layers
-        self.adain1 = AdaIN(style_dim, input_dim)
-        self.conv1 = nn.Conv2d(input_dim, output_dim, kernel_size=3, stride=1, padding=1)
-        self.adain2 = AdaIN(style_dim, output_dim)
-        self.conv2 = nn.Conv2d(output_dim, output_dim, kernel_size=3, stride=1, padding=1)
-
-        # Create shortcut connection
-        self.shortcut = self._make_shortcut(input_dim, output_dim)
-
-    def _make_shortcut(self, input_dim, output_dim):
-        """
-        Create a shortcut connection for the block.
-
-        Parameters:
-        input_dim (int): The number of input channels.
-        output_dim (int): The number of output channels.
-
-        Returns:
-        torch.nn.Module: Either a convolutional layer or an identity layer, depending on whether the dimensions need adjustment.
-        """
-        if self.adjust_dim:
-            # If dimensions differ, use a 1x1 convolution to adjust the number of channels
-            return nn.Conv2d(input_dim, output_dim, kernel_size=1, stride=1, padding=0)
-        else:
-            # If dimensions are the same, use an identity layer
-            return nn.Identity()
-
-    def forward(self, x, style):
-        """
-        Forward pass of the AdainResBlk.
-
-        Parameters:
-        x (torch.Tensor): The input tensor.
-        style (torch.Tensor): The style vector.
-
-        Returns:
-        torch.Tensor: The output tensor of the block.
-        """
-        identity = x  # Store the original input for the shortcut connection
-
-        if self.upsample:
-            # Upsample the input and the identity if upsample is True
-            x = F.interpolate(x, scale_factor=2, mode='nearest')
-            identity = F.interpolate(identity, scale_factor=2, mode='nearest')
-
-        # Apply the AdaIN and convolutional layers
-        x = self.adain1(x, style)
-        x = self.activate(x)
-        x = self.conv1(x)
-        x = self.adain2(x, style)
-        x = self.activate(x)
-        x = self.conv2(x)
-
-        if self.adjust_dim:
-            # Adjust the identity to match the dimensions if necessary
-            identity = self.shortcut(identity)
-
-        out = x + identity  # Add the shortcut connection
-        return out / math.sqrt(2)  # Normalize the output

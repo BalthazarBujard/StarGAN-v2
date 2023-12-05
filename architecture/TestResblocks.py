@@ -1,10 +1,5 @@
-import numpy as np
 import torch
-import torch.nn as nn
-import torch.nn.functional as F
-import math
-
-from utils import *
+from utils import ResBlk
 
 # Define input dimensions
 batch_size = 1
@@ -18,10 +13,7 @@ out_size = 128
 input_tensor = torch.randn(batch_size, in_channels, height, width)
 style_code = torch.randn(batch_size, style_dim)
 
-#res_blk_yang =  AdainResBlk(in_channels, out_size, style_dim,upsample=True)
-res_blk_younes = ResBlk(in_channels, out_size, 'DOWN')
+res_blk = ResBlk(in_channels, out_size, 'DOWN')
 
-output_younes = res_blk_younes(input_tensor, style_code)
-print(output_younes.shape)
-
-
+output = res_blk(input_tensor, style_code)
+print(output.shape)

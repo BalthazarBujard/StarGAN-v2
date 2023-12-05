@@ -1,10 +1,10 @@
-from .Generator import *
-from .Mapping_Network import * 
-from .Style_Encoder import * 
-from .Discriminator import *
-from torch.nn.parallel import DistributedDataParallel
-import torch.distributed as dist
+from Generator import *
+from Mapping_Network import * 
+from Style_Encoder import * 
+from Discriminator import *
 from munch import Munch
+import copy
+
 """
 Model Arguments :
 
@@ -41,4 +41,3 @@ def Model(params):
                      style_encoder=style_encoder_copy)
     
     return netwroks,netwroks_copy
-

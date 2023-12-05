@@ -1,11 +1,7 @@
-import copy
-import math
-import numpy as np
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
 
-from architecture.utils import *
+from utils import *
 
 class Generator(nn.Module):
     """
@@ -25,7 +21,6 @@ class Generator(nn.Module):
         # Define the initial convolution layer to process RGB input
         self.from_rgb = nn.Conv2d(3, 64, 3, 1, 1) # conv 1*1
         
-        #self.from_rgb = nn.Conv2d(3,64,1,1,0) #vrai conv 1x1 sans padding
         # Initialize lists to store encoding and decoding blocks
         self.encode = nn.ModuleList()
         self.decode = nn.ModuleList()
@@ -78,12 +73,3 @@ class Generator(nn.Module):
             x = block(x, s)
         # Final output layer to produce the RGB image (1*1 Conv)
         return self.to_rgb(x)
-
-
-style_length = 64
-batch_size = 1
-tensor = torch.rand(batch_size, 3, 256, 256)  # (batch_size, channels, height, width)
-style = torch.rand(batch_size, style_length)  # (batch_size, style_dim)
-generator_model = Generator()
-#print(generator_model)
-output = generator_model(tensor, style)
