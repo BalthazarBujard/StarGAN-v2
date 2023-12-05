@@ -46,7 +46,7 @@ def Model(params):
 
     #ADD FAN NETWORK WITH PRETRAINED WEIGHTS
     if params.num_domains==2 : #only if celeba_hq
-        fan = FAN(pretrained_file="weights.pth").eval().to(torch.device('cuda' if torch.cuda.is_available() else 'cpu'))
+        fan = FAN(pretrained_file=params.fan_pretrained_fname).eval().to(torch.device('cuda' if torch.cuda.is_available() else 'cpu'))
         #fan.get_heatmap = fan.module.get_heatmap
         networks.fan = fan
         networks_copy.fan = fan
