@@ -18,7 +18,7 @@ class Generator(nn.Module):
         - n_layers (int) : number of down/upsampling layers (4 for afhq and 5 for celeba_hq)
 
     """
-    def __init__(self, img_size=256, style_dim=64, max_dim=512, n_layers=4):
+    def __init__(self, img_size=256, style_dim=64, max_dim=512, n_layers=4 , wFilter = 1):
         super().__init__()
         self.img_size = img_size
         
@@ -38,11 +38,13 @@ class Generator(nn.Module):
 
         # down/up-sampling blocks
         dim_in = 64
+        if wFilter > 0:
+            n_layers += 1
         for _ in range(n_layers):
             dim_out = min(dim_in*2,max_dim)
             
             self.encode.append(ResBlk(dim_in, dim_out, resampling='DOWN' ,normalizationMethod ='IN', S_size=style_dim))
-            self.decode.insert(0, ResBlk(dim_out, dim_in, resampling='UP' ,normalizationMethod ='AdaIN', S_size=style_dim))
+            self.decode.insert(0, ResBlk(dim_out, dim_in, resampling='UP' ,normalizationMethod ='AdaIN', S_size=style_dim,wFilter=wFilter))
 
             dim_in=dim_out
         
@@ -52,30 +54,42 @@ class Generator(nn.Module):
         self.encode.append(ResBlk(512, 512,normalizationMethod ='IN', S_size=style_dim))
         self.encode.append(ResBlk(512, 512,normalizationMethod ='IN', S_size=style_dim))
         # Append 2 Adain Residual Blocks to the decoding list (inserted from the left)
-        self.decode.insert(0, ResBlk(512, 512,normalizationMethod ='AdaIN', S_size=style_dim))
-        self.decode.insert(0, ResBlk(512, 512,normalizationMethod ='AdaIN', S_size=style_dim))
+        self.decode.insert(0, ResBlk(512, 512,normalizationMethod ='AdaIN', S_size=style_dim,wFilter=wFilter))
+        self.decode.insert(0, ResBlk(512, 512,normalizationMethod ='AdaIN', S_size=style_dim,wFilter=wFilter))
 
-    def forward(self, x, s):
+        if wFilter > 0:
+            device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+            self.filter = FilterKernel(wFilter, device)
+        
+
+    def forward(self, x, s,FAN_masks):
         """
         Forward pass of the Generator module.
 
         Parameters:
         - x (torch.Tensor): The input tensor.
         - s (torch.Tensor): The style vector.
-
+        - fan_masks (Optional[List[torch.Tensor]]): List of FAN masks for different resolutions.
         Returns:
         torch.Tensor: The output RGB image.
         """
         # Initial processing of the RGB input 
         x = self.from_rgb(x)
+        saved_feature_maps  = {}
          # Encoding phase
         for block in self.encode:
+            if (FAN_masks is not None) and (x.size(2) in [32, 64, 128]):
+                saved_feature_maps [x.size(2)] = x
             # Apply the current decoding block,
             x = block(x)
         # Decoding phase
         for block in self.decode:
             # Apply the current decoding block, conditioned on style 's'
             x = block(x, s)
+            if (FAN_masks is not None) and (x.size(2) in [32, 64, 128]):
+                mask = FAN_masks[0] if x.size(2) == 32 else FAN_masks[1]
+                mask = F.interpolate(mask, size=x.size(2), mode='bilinear')
+                x = x + self.filter(mask * saved_feature_maps[x.size(2)])
         # Final output layer to produce the RGB image (1*1 Conv)
         return self.to_rgb(x)
 

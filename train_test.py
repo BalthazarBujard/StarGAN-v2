@@ -41,6 +41,7 @@ parser.add_argument('--resume_iter', type=int, default=0,
                         help='Start iteration')
 parser.add_argument('--max_iter', type=int, default=200,
                         help='Style code dimension')
+
 parser.add_argument('--mode', type=str, default="train",
                         help='train or test mode')
 parser.add_argument('--lr', type=float, default=10e-4,
@@ -57,10 +58,12 @@ parser.add_argument('--checkpoint_dir', type=str, default="",
                         help='Directory to save models ceckpoints')
 parser.add_argument('--log_iter', type=int, default=1,
                         help='log out every ...')
+parser.add_argument('--fan_pretrained_fname', type=str, default="weights.pth",
+                        help='FAN Pretrained')
 params = parser.parse_args()
 
-#root="../dataset/data/celeba_hq/train" #if local
-root = "../shared/stargan_folder/data/celeba_hq/train" #if gpu server
+root="celeba_hq_256/train" #if local
+# root = "../shared/stargan_folder/data/celeba_hq/train" #if gpu server
 #Model,CopyModel = Model(params)
 
 trainer = Trainer(params)

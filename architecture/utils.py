@@ -69,7 +69,8 @@ class ResBlk(nn.Module):
         - forward(x, s=None): Combines the skip connection and convolutional block, dividing by sqrt(2) for unit variance.
     """
     
-    def __init__(self, in_size, out_size, resampling=None ,normalizationMethod =None, S_size=64):
+    def __init__(self, in_size, out_size, resampling=None ,normalizationMethod =None, S_size=64 , wFilter
+                  = 0):
         super().__init__()
 
         # Initialize parameters
@@ -78,7 +79,7 @@ class ResBlk(nn.Module):
         self.resampling = resampling  
         self.normalizationMethod = normalizationMethod  
         self.S_size = S_size                
-
+        self.wFilter = wFilter
         # Activation function
         self.activation = nn.LeakyReLU(0.2)
 
@@ -152,8 +153,11 @@ class ResBlk(nn.Module):
         return x
 
     def forward(self, x, s=None):
-        # Return the sum of skip connection and convolution block output, divided by sqrt(2) to get unit variance
-        return (self.skip_con(x) + self.convBlock(x, s)) / math.sqrt(2)
+        if self.normalizationMethod  == 'AdaIN' and self.wFilter >0  :
+            return self.convBlock(x, s)
+        else : 
+            # Return the sum of skip connection and convolution block output, divided by sqrt(2) to get unit variance
+            return (self.skip_con(x) + self.convBlock(x, s)) / math.sqrt(2)
 
 #Redundant, replaced by ResBlk
 
@@ -233,3 +237,18 @@ class AdainResBlk(nn.Module):
 
         out = x + identity  # Add the shortcut connection
         return out / math.sqrt(2)  # Normalize the output
+    
+
+
+class FilterKernel(nn.Module):
+    def __init__(self, wFilter, device):
+        super(FilterKernel, self).__init__()
+        filter_kernel = torch.tensor([[-1, -1, -1],
+                              [-1, 8., -1],
+                              [-1, -1, -1]]) / wFilter
+        self.filter = filter_kernel
+        
+    def forward(self, x):
+        filter = self.filter.unsqueeze(0).unsqueeze(1).repeat(x.size(1), 1, 1, 1)
+        return F.conv2d(x, filter, padding=1, groups=x.size(1))
+
