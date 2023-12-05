@@ -192,7 +192,13 @@ class FAN(nn.Module):
 
         #load pretrained model
         if pretrained_file != None:
-            self.load_state_dict(torch.load(pretrained_file))
+            checkpoint = torch.load(pretrained_file)
+            model_weights = self.state_dict()
+            model_weights.update({k: v for k, v in checkpoint['state_dict'].items()
+                              if k in model_weights})
+            self.load_state_dict(model_weights)
+
+            #self.load_state_dict(torch.load(pretrained_file))
 
     def forward(self, x):
         x, _ = self.conv1(x)

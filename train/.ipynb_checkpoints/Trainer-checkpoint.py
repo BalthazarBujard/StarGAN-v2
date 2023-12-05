@@ -124,7 +124,12 @@ class Trainer(nn.Module) :
 
                 #landmark mask -> to be used if celeba_hq data; used in Generator ! (to be implemented)
                 masks = nets.fan.get_heatmap(x_org)
-                print(masks.shape)
+                #print(masks[0].shape,masks[1].shape)
+                plt.subplot(121)
+                plt.imshow(torch.permute(masks[0][0],[1,2,0]).cpu().detach().numpy())
+                plt.subplot(122)
+                plt.imshow(torch.permute(x_org[0],[1,2,0]).cpu().detach().numpy())
+                plt.show()
                 
                 #Train discriminator
                 #with latent code
