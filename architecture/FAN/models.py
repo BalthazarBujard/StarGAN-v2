@@ -1,3 +1,9 @@
+"""
+Most of this code is inspired/taken from https://github.com/protossw512/AdaptiveWingLoss and 
+https://github.com/clovaai/stargan-v2/blob/master/core/wing.py
+"""
+
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -186,7 +192,7 @@ class FAN(nn.Module):
 
         #load pretrained model
         if pretrained_file != None:
-            self.load_state_dict(pretrained_file)
+            self.load_state_dict(torch.load(pretrained_file))
 
     def forward(self, x):
         x, _ = self.conv1(x)

@@ -123,7 +123,8 @@ class Trainer(nn.Module) :
                 y_trg = inputs.y_trg
 
                 #landmark mask -> to be used if celeba_hq data; used in Generator ! (to be implemented)
-                #masks = nets.fan.get_heatmap(x_org)
+                masks = nets.fan.get_heatmap(x_org)
+                print(masks.shape)
                 
                 #Train discriminator
                 #with latent code
