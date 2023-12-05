@@ -192,7 +192,7 @@ class FAN(nn.Module):
 
         #load pretrained model
         if pretrained_file != None:
-            checkpoint = torch.load(pretrained_file,map_location=torch.device('cpu'))
+            checkpoint = torch.load(pretrained_file)
             model_weights = self.state_dict()
             model_weights.update({k: v for k, v in checkpoint['state_dict'].items()
                               if k in model_weights})
