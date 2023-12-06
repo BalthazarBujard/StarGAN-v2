@@ -123,18 +123,18 @@ class Trainer(nn.Module) :
                 y_trg = inputs.y_trg
 
                 #landmark mask -> to be used if celeba_hq data; used in Generator ! (to be implemented)
-                masks = nets.fan.get_heatmap(x_org)
+                masks = nets.fan.get_heatmap(x_org) if params.num_domains==2 else None
                 #print(masks[0].shape,masks[1].shape)
                 plt.subplot(121)
                 plt.imshow(torch.permute(masks[0][0],[1,2,0]).cpu().detach().numpy())
                 plt.subplot(122)
                 plt.imshow(torch.permute(x_org[0],[1,2,0]).cpu().detach().numpy())
                 plt.show()
-                
+        
                 #Train discriminator
                 #with latent code
                 d_loss, d_loss_latent = loss_discriminator(nets, x_org, y_org,
-                                                           y_trg, z_trg=z1)
+                                                           y_trg, z_trg=z1, FAN_masks = masks)
                 
                 #add loss to plot
                 losses.d_latent.append(d_loss.cpu().detach().numpy())
@@ -145,7 +145,7 @@ class Trainer(nn.Module) :
                 
                 #with reference image
                 d_loss, d_loss_ref = loss_discriminator(nets, x_org, y_org,
-                                                            y_trg, x_ref=x_ref1)
+                                                            y_trg, x_ref=x_ref1,FAN_masks = masks)
                 losses.d_ref.append(d_loss.cpu().detach().numpy())
     
                 
@@ -154,9 +154,9 @@ class Trainer(nn.Module) :
                 optims.discriminator.step()
                 
                 # Train generator
-                g_loss, g_loss_latent = loss_generator(nets, x_org, y_org, y_trg,
+                g_loss, g_loss_latent = loss_generator(nets, params, x_org, y_org, y_trg,
                                                         z_trgs=[z1,z2],
-                                                        lambda_ds=params.lambda_ds)
+                                                        lambda_ds=params.lambda_ds,FAN_masks = masks)
                 
                 losses.g_latent.append(g_loss.cpu().detach().numpy())
                 
@@ -166,9 +166,9 @@ class Trainer(nn.Module) :
                 optims.mapping_network.step()
                 optims.style_encoder.step()
                 
-                g_loss, g_loss_ref = loss_generator(nets, x_org, y_org, y_trg,
+                g_loss, g_loss_ref = loss_generator(nets, params, x_org, y_org, y_trg,
                                                         x_refs=[x_ref1,x_ref2],
-                                                        lambda_ds=params.lambda_ds)
+                                                        lambda_ds=params.lambda_ds,FAN_masks = masks)
                 losses.g_ref.append(g_loss.cpu().detach().numpy())
     
                 self._reset_grad()
@@ -248,8 +248,8 @@ class Trainer(nn.Module) :
             
             style = mn(z1,y_trg)
             input_img=x_org
-            
-            x_fake=generator(input_img,style)
+            masks = nets.fan.get_heatmap(x_org) if params.num_domains==2 else None
+            x_fake=generator(input_img,style, masks)
             
             x_n = [(x-x.min())/(x.max()-x.min()) for x in x_fake]
             
