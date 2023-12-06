@@ -246,9 +246,8 @@ class FilterKernel(nn.Module):
         filter_kernel = torch.tensor([[-1, -1, -1],
                               [-1, 8., -1],
                               [-1, -1, -1]]) / wFilter
-        self.filter = filter_kernel
+        self.filter = filter_kernel.to(device) 
         
     def forward(self, x):
         filter = self.filter.unsqueeze(0).unsqueeze(1).repeat(x.size(1), 1, 1, 1)
         return F.conv2d(x, filter, padding=1, groups=x.size(1))
-
