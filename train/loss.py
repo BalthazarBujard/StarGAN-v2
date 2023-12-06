@@ -23,7 +23,7 @@ def cycle_loss(reconstructed_img, real_img):
     return torch.mean(torch.abs(reconstructed_img - real_img))
 
 
-def loss_generator(nets, x_real, y_org, y_trg, z_trgs=None, x_refs=None, lambda_sty=1.0, lambda_ds=1.0, lambda_cyc=1.0):
+def loss_generator(nets, params, x_real, y_org, y_trg, z_trgs=None, x_refs=None, lambda_sty=1.0, lambda_ds=1.0, lambda_cyc=1.0,FAN_masks=None):
     """
     Calculates the total loss for the generator.
 
@@ -50,16 +50,16 @@ def loss_generator(nets, x_real, y_org, y_trg, z_trgs=None, x_refs=None, lambda_
     else:
         s_trg = nets.style_encoder(x_refs[0], y_trg)
         s_trg2 = nets.style_encoder(x_refs[1], y_trg)
-
-    # Encode original image style for cycle consistency
-    s_org = nets.style_encoder(x_real, y_org)
     
     # Generate fake images in the target style
-    x_fake = nets.generator(x_real, s_trg)
+    x_fake = nets.generator(x_real, s_trg, FAN_masks)
     # Generate another fake image with a different style for diversity loss
-    x_fake2 = nets.generator(x_real, s_trg2).detach()  # Detach to avoid gradients affecting the second image
+    x_fake2 = nets.generator(x_real, s_trg2, FAN_masks).detach()  # Detach to avoid gradients affecting the second image
+
     # Reconstruct the original image from the fake one for cycle consistency
-    x_rec = nets.generator(x_fake, s_org)
+    masks = nets.fan.get_heatmap(x_fake) if params.num_domains==2 else None
+    s_org = nets.style_encoder(x_real, y_org)
+    x_rec = nets.generator(x_fake, s_org, masks)
     
     # Get discriminator's judgement of the fake image for adversarial loss
     out = nets.discriminator(x_fake, y_trg)
@@ -96,7 +96,7 @@ def r1_reg(out_real, x_real):
     return grad_penalty
 
 # Discriminator Loss Function
-def loss_discriminator(nets, x_real, y_org, y_trg, z_trg=None, x_ref=None, lambda_reg=1.0):
+def loss_discriminator(nets, x_real, y_org, y_trg, z_trg=None, x_ref=None, lambda_reg=1.0, FAN_masks=None):
     """
     Calculates the total loss for the discriminator.
 
@@ -127,7 +127,7 @@ def loss_discriminator(nets, x_real, y_org, y_trg, z_trg=None, x_ref=None, lambd
             s_trg = nets.style_encoder(x_ref, y_trg)
         else:
             raise ValueError("Either z_trg or x_ref must be provided.")
-        x_fake = nets.generator(x_real, s_trg)
+        x_fake = nets.generator(x_real, s_trg, FAN_masks)
     out = nets.discriminator(x_fake, y_trg)
     loss_fake = adversarial_loss(out, 0)
     
