@@ -18,7 +18,7 @@ class Generator(nn.Module):
         - n_layers (int) : number of down/upsampling layers (4 for afhq and 5 for celeba_hq)
 
     """
-    def __init__(self, img_size=256, style_dim=64, max_dim=512, n_layers=4 , wFilter = 1):
+    def __init__(self, img_size=256, style_dim=64, max_dim=512 , wFilter = 1):
         super().__init__()
         self.img_size = img_size
         
@@ -37,11 +37,11 @@ class Generator(nn.Module):
             nn.Conv2d(64, 3, 1, 1, 0)) # conv 1*1
 
         # down/up-sampling blocks
-        dim_in = 64
-        if wFilter > 0:
-            n_layers += 1
+        dim_in = 64 #input dimension of encoder after 
+        n_layers = int(np.log2(img_size)) - 4 + 1*int(wFilter>0)#-> downscale to 16x16 the feature maps, no matter the img size -> bigger img deeper network
+        #one more layer for faces (aka if Wfilter > 0) -> 8x8
         for _ in range(n_layers):
-            dim_out = min(dim_in*2,max_dim)
+            dim_out = min(dim_in*2,max_dim) #we double the number of filters every step (Except bottleneck) until 512
             
             self.encode.append(ResBlk(dim_in, dim_out, resampling='DOWN' ,normalizationMethod ='IN', S_size=style_dim))
             self.decode.insert(0, ResBlk(dim_out, dim_in, resampling='UP' ,normalizationMethod ='AdaIN', S_size=style_dim,wFilter=wFilter))
@@ -78,8 +78,9 @@ class Generator(nn.Module):
         saved_feature_maps  = {}
          # Encoding phase
         for block in self.encode:
+            #only apply FAN to faces and during the up/downsampling -> not for 256x256 and 16x16 constant covolutions
             if (FAN_masks is not None) and (x.size(2) in [32, 64, 128]):
-                saved_feature_maps [x.size(2)] = x
+                saved_feature_maps [x.size(2)] = x #save current input -> skip connections ???
             # Apply the current decoding block,
             x = block(x)
         # Decoding phase
@@ -87,8 +88,10 @@ class Generator(nn.Module):
             # Apply the current decoding block, conditioned on style 's'
             x = block(x, s)
             if (FAN_masks is not None) and (x.size(2) in [32, 64, 128]):
+                #use landamrks heatmap during decoding phase <-> generating face
+                #bring attention to key features in a face
                 mask = FAN_masks[0] if x.size(2) == 32 else FAN_masks[1]
-                mask = F.interpolate(mask, size=x.size(2), mode='bilinear')
+                mask = F.interpolate(mask, size=x.size(2), mode='bilinear') #downscale to same size as input
                 x = x + self.filter(mask * saved_feature_maps[x.size(2)])
         # Final output layer to produce the RGB image (1*1 Conv)
         return self.to_rgb(x)

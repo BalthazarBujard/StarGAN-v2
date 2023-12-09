@@ -1,3 +1,12 @@
+"""
+@InProceedings{Wang_2019_ICCV,
+author = {Wang, Xinyao and Bo, Liefeng and Fuxin, Li},
+title = {Adaptive Wing Loss for Robust Face Alignment via Heatmap Regression},
+booktitle = {The IEEE International Conference on Computer Vision (ICCV)},
+month = {October},
+year = {2019}
+}
+"""
 import torch
 import torch.nn as nn
 

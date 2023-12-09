@@ -13,7 +13,7 @@ import time
 import datetime
 import sys
 from IPython.display import clear_output #for display
-from torchvision.utils import make_grid #for plot
+from torchvision.utils import make_grid, save_image #for plot
 
 def moving_average(model, model_copy, beta=0.999):
     for param, param_test in zip(model.parameters(), model_copy.parameters()):
@@ -123,13 +123,8 @@ class Trainer(nn.Module) :
                 y_trg = inputs.y_trg
 
                 #landmark mask -> to be used if celeba_hq data; used in Generator ! (to be implemented)
-                masks = nets.fan.get_heatmap(x_org) if params.num_domains==2 else None
+                masks = nets.fan.get_heatmap(x_org) if params.wFilter>0 else None
                 #print(masks[0].shape,masks[1].shape)
-                plt.subplot(121)
-                plt.imshow(torch.permute(masks[0][0],[1,2,0]).cpu().detach().numpy())
-                plt.subplot(122)
-                plt.imshow(torch.permute(x_org[0],[1,2,0]).cpu().detach().numpy())
-                plt.show()
         
                 #Train discriminator
                 #with latent code
@@ -193,7 +188,7 @@ class Trainer(nn.Module) :
                     t=time.time()-t0
                     t=str(datetime.timedelta(seconds=t))#[:-7]
                     
-                    log = f"Time elapsed : {t}\nEpoch : {epoch}/{params.epochs}, Batch {i+1}/{len(train_loader)}\n"#{params.max_iter}"
+                    log = f"Time elapsed : {t}\nEpoch : {epoch+1}/{params.epochs}, Batch {i+1}/{len(train_loader)}\n"#{params.max_iter}"
                     print(log)
                     
                     #losses
@@ -224,8 +219,8 @@ class Trainer(nn.Module) :
                 #show example during training on val dataset 
                 
                 #save model
-                if (i+1)%params.save_iter==0:
-                    self._save_checkpoint(step=i+1)
+                #if (i+1)%params.save_iter==0:
+                 #   self._save_checkpoint(step=i+1)
                 
                 #evaluation metrics
                 if (i+1)%params.eval_iter==0:
@@ -260,6 +255,11 @@ class Trainer(nn.Module) :
             plt.figure(figsize=(10,5))
             plt.imshow(imgs)
             plt.show()
+
+            #save every n epochs
+            if (epoch+1)%params.save_epoch==0:
+                self._save_checkpoint(step=epoch+1)
+                save_img(imgs,f"runs/{epoch+1}_imgs.png")
             
             
         

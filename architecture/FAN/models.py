@@ -1,6 +1,11 @@
 """
-Most of this code is inspired/taken from https://github.com/protossw512/AdaptiveWingLoss and 
-https://github.com/clovaai/stargan-v2/blob/master/core/wing.py
+Most of this code is inspired/taken from: 
+
+https://github.com/protossw512/AdaptiveWingLoss 
+
+and 
+
+https://github.com/clovaai/stargan-v2/blob/master/core/wing.py for the specific heatmap preprocessing elements unavailable from the article
 """
 
 
@@ -150,9 +155,10 @@ class HourGlass(nn.Module):
         x, last_channel = self.coordconv(x, heatmap)
         return self._forward(self.depth, x), last_channel
 
+#Face Allignment Network
 class FAN(nn.Module):
-
-    def __init__(self, num_modules=1, end_relu=False, num_landmarks=98, pretrained_file=None):
+    def __init__(self, num_modules=1, end_relu=False, num_landmarks=98, pretrained_file=None): 
+        #needs the same 98 landmarks as stargan git for compatibility with preprocessing, default is 68
         super(FAN, self).__init__()
         self.num_modules = num_modules
         self.end_relu = end_relu
@@ -194,6 +200,7 @@ class FAN(nn.Module):
         if pretrained_file != None:
             checkpoint = torch.load(pretrained_file)
             model_weights = self.state_dict()
+            #only update model weights form state dict in checkpoint file
             model_weights.update({k: v for k, v in checkpoint['state_dict'].items()
                               if k in model_weights})
             self.load_state_dict(model_weights)
@@ -240,15 +247,15 @@ class FAN(nn.Module):
     @torch.no_grad()
     def get_heatmap(self, x, b_preprocess=True):
         ''' outputs 0-1 normalized heatmap '''
-        x = F.interpolate(x, size=256, mode='bilinear')
-        x_01 = x*0.5 + 0.5
-        outputs, _ = self(x_01)
-        heatmaps = outputs[-1][:, :-1, :, :]
+        x = F.interpolate(x, size=256, mode='bilinear') #
+        x_01 = x*0.5 + 0.5 #(x+1)/2 passer de -1,1 a 0,1
+        outputs, _ = self(x_01) #get landmarks
+        heatmaps = outputs[-1][:, :-1, :, :] #take last element of outputs (batch dim) and from that tensor take everything except last channel (:-1)
         scale_factor = x.size(2) // heatmaps.size(2)
         if b_preprocess:
             heatmaps = F.interpolate(heatmaps, scale_factor=scale_factor,
                                      mode='bilinear', align_corners=True)
-            heatmaps = preprocess(heatmaps)
+            heatmaps = preprocess(heatmaps) #if the size of the heatmap is different as input imgs -> process 
         return heatmaps
 
 """ 
@@ -258,11 +265,11 @@ def normalize(x, eps=1e-6):
     """Apply min-max normalization."""
     x = x.contiguous()
     N, C, H, W = x.size()
-    x_ = x.view(N*C, -1)
-    max_val = torch.max(x_, dim=1, keepdim=True)[0]
-    min_val = torch.min(x_, dim=1, keepdim=True)[0]
-    x_ = (x_ - min_val) / (max_val - min_val + eps)
-    out = x_.view(N, C, H, W)
+    x_ = x.view(N*C, -1) #check for every pixel in inputs
+    max_val = torch.max(x_, dim=1, keepdim=True)[0] #max
+    min_val = torch.min(x_, dim=1, keepdim=True)[0] #min
+    x_ = (x_ - min_val) / (max_val - min_val + eps) #normalize pixels
+    out = x_.view(N, C, H, W) #output as same shape 
     return out
 
 
@@ -296,7 +303,7 @@ def shift(x, N):
     out = x[:, :, perm, :]
     return out
 
-
+#landmarks indexes
 IDXPAIR = namedtuple('IDXPAIR', 'start end')
 index_map = Munch(chin=IDXPAIR(0 + 8, 33 - 8),
                   eyebrows=IDXPAIR(33, 51),
@@ -310,7 +317,7 @@ index_map = Munch(chin=IDXPAIR(0 + 8, 33 - 8),
                   lipinner=IDXPAIR(88, 96))
 OPPAIR = namedtuple('OPPAIR', 'shift resize')
 
-
+# short analysis : translate and rescale heatmap landmarks and does a second copy without facelines and mouth for deeper G layers
 def preprocess(x):
     """Preprocess 98-dimensional heatmaps."""
     N, C, H, W = x.size()

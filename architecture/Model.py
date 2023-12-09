@@ -23,8 +23,8 @@ def Model(params):
     """
     # Initialize the process group
     # dist.init_process_group(backend='cuda', rank=0, world_size=1)
-    n_layers = 4 if params.num_domains==3 else 5 #5 layersa for celeba_hq
-    generator = (Generator(params.img_size,params.style_dim, n_layers=n_layers))
+    n_layers = 4 if params.wFilter>3 else 5 #5 layersa for celeba_hq
+    generator = (Generator(params.img_size,params.style_dim, wFilter=params.wFilter))
     mapping_network = (MappingNetwork(params.latent_dim, params.style_dim, params.num_domains))
     style_encoder = (StyleEncoder(params.style_dim, params.num_domains))
     discriminator = (Discriminator(params.num_domains))
@@ -45,7 +45,7 @@ def Model(params):
                      discriminator = discriminator_copy)
 
     #ADD FAN NETWORK WITH PRETRAINED WEIGHTS
-    if params.num_domains==2 : #only if celeba_hq
+    if params.wFilter>0 : #only if celeba_hq
         fan = FAN(pretrained_file=params.fan_pretrained_fname).eval().to(torch.device('cuda' if torch.cuda.is_available() else 'cpu'))
         #fan.get_heatmap = fan.module.get_heatmap
         networks.fan = fan

@@ -82,7 +82,8 @@ def loss_generator(nets, params, x_real, y_org, y_trg, z_trgs=None, x_refs=None,
 
 def r1_reg(out_real, x_real):
     """
-    Computes the R1 regularization penalty.
+    Computes the R1 regularization penalty. 
+    Smooths decision boundires of the discriminator by giving extra penalty if the gradient with respect to the input is high -> big slope -> harsh manifold
 
     Args:
     out_real (Tensor): Output of the discriminator for real images.
@@ -91,7 +92,8 @@ def r1_reg(out_real, x_real):
     Returns:
     Tensor: R1 regularization penalty.
     """
-    grad_real = torch.autograd.grad(outputs=out_real.sum(), inputs=x_real, create_graph=True)[0]
+    grad_real = torch.autograd.grad(outputs=out_real.sum(), inputs=x_real, create_graph=True)[0] #0th is the last layer grad -> decision ouput
+    #penalty is the mean of the gradients norm for each input in the batch : 1/N * sum(||grad_i||) for i = 1,..,N
     grad_penalty = (grad_real.view(grad_real.size(0), -1).norm(2, dim=1) ** 2).mean()
     return grad_penalty
 
@@ -114,7 +116,7 @@ def loss_discriminator(nets, x_real, y_org, y_trg, z_trg=None, x_ref=None, lambd
     """
     assert (z_trg is None) != (x_ref is None)
     # Compute real loss
-    x_real.requires_grad_() 
+    x_real.requires_grad_() #needed to calculate the gradient of the output with respect of the input -> r1 -> smooth decision boundires
     out_real = nets.discriminator(x_real, y_org)
     # Regularization term
     loss_reg = r1_reg(out_real, x_real)
