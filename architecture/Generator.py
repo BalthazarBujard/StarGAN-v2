@@ -38,7 +38,8 @@ class Generator(nn.Module):
 
         # down/up-sampling blocks
         dim_in = 64 #input dimension of encoder after 
-        n_layers = int(np.log2(img_size)) - 4 + 1*int(wFilter>0)#-> downscale to 16x16 the feature maps, no matter the img size -> bigger img deeper network
+        n_layers = int(np.log2(img_size)) - 4 #-> downscale to 16x16 the feature maps, no matter the img size -> bigger img deeper network
+        if wFilter>0: n_layers+=1
         #one more layer for faces (aka if Wfilter > 0) -> 8x8
         for _ in range(n_layers):
             dim_out = min(dim_in*2,max_dim) #we double the number of filters every step (Except bottleneck) until 512
@@ -90,7 +91,7 @@ class Generator(nn.Module):
             if (FAN_masks is not None) and (x.size(2) in [32, 64, 128]):
                 #use landamrks heatmap during decoding phase <-> generating face
                 #bring attention to key features in a face
-                mask = FAN_masks[0] if x.size(2) == 32 else FAN_masks[1]
+                mask = FAN_masks[0] if x.size(2) == 32 else FAN_masks[1] #[0] contains whole landmarks and [1] only center features : eyes, nose
                 mask = F.interpolate(mask, size=x.size(2), mode='bilinear') #downscale to same size as input
                 x = x + self.filter(mask * saved_feature_maps[x.size(2)])
         # Final output layer to produce the RGB image (1*1 Conv)

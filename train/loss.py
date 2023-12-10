@@ -57,7 +57,7 @@ def loss_generator(nets, params, x_real, y_org, y_trg, z_trgs=None, x_refs=None,
     x_fake2 = nets.generator(x_real, s_trg2, FAN_masks).detach()  # Detach to avoid gradients affecting the second image
 
     # Reconstruct the original image from the fake one for cycle consistency
-    masks = nets.fan.get_heatmap(x_fake) if params.num_domains==2 else None
+    masks = nets.fan.get_heatmap(x_fake) if params.wFilter>0 else None
     s_org = nets.style_encoder(x_real, y_org)
     x_rec = nets.generator(x_fake, s_org, masks)
     

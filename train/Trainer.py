@@ -243,7 +243,7 @@ class Trainer(nn.Module) :
             
             style = mn(z1,y_trg)
             input_img=x_org
-            masks = nets.fan.get_heatmap(x_org) if params.num_domains==2 else None
+            masks = nets.fan.get_heatmap(x_org) if params.wFilter>0 else None
             x_fake=generator(input_img,style, masks)
             
             x_n = [(x-x.min())/(x.max()-x.min()) for x in x_fake]
@@ -259,7 +259,7 @@ class Trainer(nn.Module) :
             #save every n epochs
             if (epoch+1)%params.save_epoch==0:
                 self._save_checkpoint(step=epoch+1)
-                save_img(imgs,f"runs/{epoch+1}_imgs.png")
+                save_image(grid,f"runs/{epoch+1}_imgs.png")
             
             
         

@@ -23,7 +23,7 @@ def Model(params):
     """
     # Initialize the process group
     # dist.init_process_group(backend='cuda', rank=0, world_size=1)
-    n_layers = 4 if params.wFilter>3 else 5 #5 layersa for celeba_hq
+    n_layers = 4 if params.wFilter>3 else 5 #5 layersa for celeba_hq -> depends on img size mainly
     generator = (Generator(params.img_size,params.style_dim, wFilter=params.wFilter))
     mapping_network = (MappingNetwork(params.latent_dim, params.style_dim, params.num_domains))
     style_encoder = (StyleEncoder(params.style_dim, params.num_domains))
