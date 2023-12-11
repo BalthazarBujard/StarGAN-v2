@@ -13,7 +13,13 @@ lpips_metric = lpips.LPIPS(net="alex").to(torch.device('cuda' if torch.cuda.is_a
 
 
 #ADD TQMD TO SHOW PROGRESION (it is kinda slow...)
+#CLEAN CODE (sub methods etc)
 class Evaluator:
+    """
+    Evlautor object used to compute metrics for StarGANv2
+    LPIPS : computes lpips for every task (src2trg domain) and stores every output to params.save_dir to be used for FID
+    FID : to be added
+    """
     def __init__(self, eval_params, nets):
         self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         self.nets = nets
