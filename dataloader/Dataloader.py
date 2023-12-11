@@ -222,7 +222,7 @@ def get_loader(root, batch_size, img_size, chunk = "train", num_files=-1, imgnet
             transforms.Normalize(mean, std)])
         
         dataset = EvalDataset(root,transform=transform)
-        loader = DataLoader(dataset, batch_size=batch_size)
+        loader = DataLoader(dataset, batch_size=batch_size, drop_last=True) #for evaluation we need batches of same size
         
         return loader
     
@@ -244,9 +244,10 @@ def get_loader(root, batch_size, img_size, chunk = "train", num_files=-1, imgnet
 #class to fetch inputs, mainly to handle end of dataloader
 #dataloader already handles cases of train and test so no need to do it here
 class Fetcher:
-    def __init__(self,loader):
+    def __init__(self,loader, chunk="train"):
         self.loader = loader
         self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+        self.chunk=chunk
         
     def _fetch_inputs(self):
         #method to fetch next set of inputs
@@ -264,7 +265,14 @@ class Fetcher:
         inputs = self._fetch_inputs()
         
         #pass inputs to cuda
-        return Munch({key : item.to(self.device) for key, item in inputs.items()})
+        if self.chunk=="train":
+            return Munch({key : item.to(self.device) for key, item in inputs.items()}) 
+        elif self.chunk == "eval":
+            return inputs.to(self.device)
+        else:
+            raise Exception(f"Invalid chunk : {chunk}. Valid chunks are train or eval")
+            
+        
       
             
             
