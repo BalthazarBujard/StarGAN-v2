@@ -4,8 +4,10 @@ import torch.nn.functional as F
 import torch.nn as nn
 from munch import Munch
 import os
+import json
 import shutil #igh level directory management
 import lpips
+from EvaluationMetrics import * 
 from torchvision.utils import save_image
 from dataloader.Dataloader import get_loader, Fetcher
 
@@ -23,10 +25,11 @@ class Evaluator:
     def __init__(self, eval_params, nets):
         self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         self.nets = nets
-
+        self.img_size = eval_params.img_size
         self.val_dir = eval_params.val_dir
         self.save_dir = eval_params.save_dir
-
+        self.train_dir = eval_params.train_dir
+        self.val_batch_size = eval_params.val_batch_size
         self.metrics=Munch(lpips=[], fid=[])
 
         self.params = eval_params
@@ -127,7 +130,37 @@ class Evaluator:
 
         return lpips_dict
                 
-                
+
+    def evaluate_fid(self, mode,step) : 
+        #for every domain, evaluate lpips from src domain to trg domain for every pair of domains
+        domains = [d for d in os.listdir(self.val_dir) if ".ipynb" not in d] #handle bad folder from ipynb notebooks...
+        params = self.params
+        #dict conatining the mean values for every task (task is src_domain2trg_domain generation/synthesis)
+        #also contains the mean value for a given mode (latent or ref)
+        
+        fid_values = {}
+        #trg domains
+        for domain in domains :
+            src_domains = [src_domain for src_domain in domains if src_domain != domain]
+            for src_domain in src_domains:
+                print(f"{src_domain} to {domain} generation")
+                task = f"{src_domain}2{domain}"
+                path_fake = os.path.join(self.save_dir, task)
+                path_real = os.path.join(self.train_dir, domain)
+                fid_value = calculateFID(
+                    paths=[path_real, path_fake],
+                    img_size=self.img_size,
+                    batch_size=self.val_batch_size)
+                fid_values[f'FID_{mode}/{task}'] = fid_value
+        fid_mean = 0 
+        for _ , item in fid_values.items():
+            fid_mean+= item / len(fid_values)
+        fid_values[f"FID_{mode}/mean"] = fid_mean
+
+        filename = os.path.join(self.save_dir, f'FID_{step}_{mode}.json')
+        with open(filename, "w") as outfile:
+            json.dump(fid_values, outfile)
+
 
 def denormalize(x):
     #returns a tensor in [0,1] range no matter the input (generator output approx -1,1)
