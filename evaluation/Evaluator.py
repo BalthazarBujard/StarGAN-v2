@@ -6,6 +6,7 @@ from munch import Munch
 import os
 import shutil #igh level directory management
 import lpips
+from torchvision.utils import save_image
 from dataloader.Dataloader import get_loader, Fetcher
 
 lpips_metric = lpips.LPIPS(net="alex").to(torch.device('cuda' if torch.cuda.is_available() else 'cpu')) #LPIPS module with alexNet pretrained model
@@ -47,6 +48,7 @@ class Evaluator:
                 
             #for every pair of trg/src domains
             lpips_values=[] #list of mean lpips values for every pair of src and trg domain
+            f_inc = 0 #file name is given by its task and iter number
             for src_domain in src_domains:
 
                 print(f"{src_domain} to {domain} generation")
@@ -54,9 +56,9 @@ class Evaluator:
                 path_fake = os.path.join(self.save_dir, task)
                 #create directory to store task specific outputs (used for FID)
                 #delete pre-existing folder
-                shutil.rmtree(path_fake, ignore_errors=True) #removes folder and its content
+                shutil.rmtree(path_fake, ignore_errors=True) #removes previous folder and its content
                 #create folder
-                os.makedirs(path_fake) #makedirs creates the intermediate folders (not mkdir)
+                os.makedirs(path_fake) #makedirs creates the intermediate folders (mkdir dpesnt)
                 
                 src_path = os.path.join(self.val_dir,src_domain)
                 src_loader = get_loader(root = src_path, batch_size=params.batch_size, img_size=params.img_size, chunk="eval")
@@ -87,7 +89,11 @@ class Evaluator:
                         outputs.append(x_fake)
 
                         #save outputs for FID metric
-                        
+                        for img in x_fake:
+                            fname=os.path.join(path_fake,f"{task}_{f_inc}.png")
+                            img=denormalize(img)
+                            save_image(img.cpu(),fname)
+                            f_inc+=1
                     
                             
                 #compute lpips value for every pair of of generated outputs for that input
@@ -117,7 +123,10 @@ class Evaluator:
                 
                 
 
-
+def denormalize(x):
+    #returns a tensor in [0,1] range no matter the input (generator output approx -1,1)
+    out = (x-x.min())/(x.max()-x.min())
+    return out
 
 
 
