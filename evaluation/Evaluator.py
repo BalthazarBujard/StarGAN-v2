@@ -7,7 +7,7 @@ import os
 import json
 import shutil #igh level directory management
 import lpips
-from EvaluationMetrics import * 
+from .EvaluationMetrics import * 
 from torchvision.utils import save_image
 from dataloader.Dataloader import get_loader, Fetcher
 
@@ -29,7 +29,7 @@ class Evaluator:
         self.val_dir = eval_params.val_dir
         self.save_dir = eval_params.save_dir
         self.train_dir = eval_params.train_dir
-        self.val_batch_size = eval_params.val_batch_size
+        self.val_batch_size = eval_params.batch_size
         self.metrics=Munch(lpips=[], fid=[])
 
         self.params = eval_params
@@ -113,7 +113,7 @@ class Evaluator:
                         lpips_all.append(lpips_)
                         #print(lpips_.shape)
                 lpips_mean = torch.mean(torch.stack(lpips_all,dim=0)) #compute mean lpips value for this task
-                lpips_dict[f"{src_domain}2{domain}"]=lpips_mean.cpu().detch().numpy() #add value to lpips dictionnary
+                lpips_dict[f"{src_domain}2{domain}"]=lpips_mean.cpu().detach().numpy() #add value to lpips dictionnary
                     
                 #delete loaders
                 del src_loader

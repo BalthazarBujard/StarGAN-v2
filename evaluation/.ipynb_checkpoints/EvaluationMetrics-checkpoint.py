@@ -21,6 +21,7 @@ import torch
 import torch.nn as nn
 import matplotlib.pyplot as plt
 import lpips #module of pretrained models to perform lpips measurement
+from dataloader.Dataloader import *
 
 def fid(mu_real, mu_fake, cov_real, cov_fake):
     
@@ -98,7 +99,7 @@ def calculateFID(paths, img_size=256, batch_size=50):
     #loader_fake = get_eval_loader(path_fake, img_size, batch_size) 
 
     mu, cov = {"real": None ,"fake" : None}, {"real" :None , "fake" : None }
-    loaders = {"real":get_loader(path_real, img_size, batch_size),"fake" :get_loader(path_fake, img_size, batch_size)}
+    loaders = {"real":get_loader(path_real, img_size, batch_size, chunk="eval"),"fake" :get_loader(path_fake, img_size, batch_size, chunk="eval")}
     for key in loaders:
         actvs = []
         print(loaders[key])

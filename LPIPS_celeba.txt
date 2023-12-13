@@ -1,0 +1,4 @@
+LPIPS:
+{'male2female': array(0.5098303, dtype=float32),
+ 'female2male': array(0.5236599, dtype=float32),
+ 'LPIPS_latent/mean': 0.5167450904846191}

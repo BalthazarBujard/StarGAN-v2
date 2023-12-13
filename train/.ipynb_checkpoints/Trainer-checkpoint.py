@@ -95,13 +95,13 @@ class Trainer(nn.Module) :
         input_fetcher = Fetcher(train_loader)
         
         #get val and test/eval loader
-            #not implemented yet
-        
-        if params.resume_iter>0:
-            self._load_checkpoint(step=params.resume_iter)
+            #not implemented yet        
         
         #retreive starting lr rate
-        l_ds_init = params.lambda_ds
+        l_ds_init = params.lambda_ds_init
+
+        if params.resume_epoch>0:
+            self._load_checkpoint(step=params.resume_epoch)
         
         print("Start training...")
         t0 = time.time()
@@ -110,7 +110,7 @@ class Trainer(nn.Module) :
 
         #number of epochs
         max_iter = params.epochs*len(train_loader)
-        for epoch in range(params.epochs):
+        for epoch in range(params.resume_epoch,params.epochs):
             #for every batch in dataloader
             for i in range(len(train_loader)): #ATTENTION POUR LES CONDITIONS DE SAVE, EVALUATE ET PLOT SI BOUCLE PAR EPOCH
         #for i in range(params.resume_iter,params.max_iter):
@@ -181,7 +181,7 @@ class Trainer(nn.Module) :
                 
                 #update lambda ds with linear decay
                 if params.lambda_ds>0:
-                    params.lambda_ds -= l_ds_init/max_iter#params.max_iter
+                    params.lambda_ds -= l_ds_init/max_iter
                     
                 #log output
                 if (i+1)%params.log_iter==0:

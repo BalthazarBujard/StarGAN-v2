@@ -108,6 +108,7 @@ class StarDataset(Dataset):
             
             #for every (or max_per_domain if not all files used) image in a domain folder
             for fname in os.listdir(path)[:max_per_domain]:
+                if "ipynb" in fname : continue #problem with ipynb checkpoints...
                 labels.append(label)
                 img_paths.append(os.path.join(path,fname))
         
