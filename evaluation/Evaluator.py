@@ -53,7 +53,7 @@ class Evaluator:
                 #build reference dataset
                 ref_path = os.path.join(self.val_dir,domain)
                 ref_loader = get_loader(root = ref_path, batch_size=params.batch_size, img_size=params.img_size, chunk="eval")
-                ref_fetcher = Fetcher(ref_loader, chun="eval")
+                ref_fetcher = Fetcher(ref_loader, chunk="eval")
                 
             #for every pair of trg/src domains
             lpips_values=[] #list of mean lpips values for every pair of src and trg domain
