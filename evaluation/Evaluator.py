@@ -62,7 +62,8 @@ class Evaluator:
 
                 print(f"{src_domain} to {domain} generation")
                 task = f"{src_domain}2{domain}"
-                path_fake = os.path.join(self.save_dir, task)
+                folder = os.path.join(self.save_dir,mode)
+                path_fake = os.path.join(folder, task)
                 #create directory to store task specific outputs (used for FID)
                 #delete pre-existing folder
                 shutil.rmtree(path_fake, ignore_errors=True) #removes previous folder and its content
