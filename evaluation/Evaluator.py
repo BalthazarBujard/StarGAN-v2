@@ -50,10 +50,12 @@ class Evaluator:
             src_domains = [src_domain for src_domain in domains if src_domain != domain]
 
             if mode == "reference":
-                #build reference dataset
+                #build reference dataset from trg domain
+                print(domain)
                 ref_path = os.path.join(self.val_dir,domain)
                 ref_loader = get_loader(root = ref_path, batch_size=params.batch_size, img_size=params.img_size, chunk="eval")
                 ref_fetcher = Fetcher(ref_loader, chunk="eval")
+                
                 
             #for every pair of trg/src domains
             lpips_values=[] #list of mean lpips values for every pair of src and trg domain
@@ -62,6 +64,7 @@ class Evaluator:
 
                 print(f"{src_domain} to {domain} generation")
                 task = f"{src_domain}2{domain}"
+                #if domain != "wild" : continue
                 folder = os.path.join(self.save_dir,mode)
                 path_fake = os.path.join(folder, task)
                 #create directory to store task specific outputs (used for FID)
@@ -119,9 +122,11 @@ class Evaluator:
                 #delete loaders
                 del src_loader
                 del src_fetcher
-                if mode=="reference":
-                    del ref_loader
-                    del ref_fetcher
+
+            #delete reference loader only after  generating from all src domains
+            if mode=="reference":
+                del ref_loader
+                del ref_fetcher
                     
         #compute mean lpips for every task
         mean = 0
@@ -131,7 +136,7 @@ class Evaluator:
 
         return lpips_dict
                 
-
+    @torch.no_grad()
     def evaluate_fid(self, mode,step) : 
         #for every domain, evaluate lpips from src domain to trg domain for every pair of domains
         domains = [d for d in os.listdir(self.val_dir) if ".ipynb" not in d] #handle bad folder from ipynb notebooks...
@@ -146,7 +151,8 @@ class Evaluator:
             for src_domain in src_domains:
                 print(f"{src_domain} to {domain} generation")
                 task = f"{src_domain}2{domain}"
-                path_fake = os.path.join(self.save_dir, task)
+                folder = os.path.join(self.save_dir,mode)
+                path_fake = os.path.join(folder, task)
                 path_real = os.path.join(self.train_dir, domain)
                 fid_value = calculateFID(
                     paths=[path_real, path_fake],

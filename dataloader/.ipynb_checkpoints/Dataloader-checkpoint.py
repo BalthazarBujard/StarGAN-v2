@@ -144,6 +144,7 @@ class EvalDataset(Dataset):
         img_paths=[] #img paths list
         
         for fname in os.listdir(root):
+            if ".ipynb" in fname: continue #still some .ipynb files that hang around...
             img_paths.append(os.path.join(root,fname))
         
         

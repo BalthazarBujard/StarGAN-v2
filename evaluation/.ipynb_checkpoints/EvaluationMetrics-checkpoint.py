@@ -88,23 +88,24 @@ class IncepV3(nn.Module):
         return x.view(x.size(0), -1)
 
 
-
+@torch.no_grad()
 def calculateFID(paths, img_size=256, batch_size=50):
     path_real, path_fake = paths
 
     print('Real Path %s \t path_fake %s...' % (path_real, path_fake))
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     inception = IncepV3().eval().to(device)
-    #loader_real = get_eval_loader(path_real, img_size, batch_size)
-    #loader_fake = get_eval_loader(path_fake, img_size, batch_size) 
+     
 
     mu, cov = {"real": None ,"fake" : None}, {"real" :None , "fake" : None }
-    loaders = {"real":get_loader(path_real, img_size, batch_size, chunk="eval"),"fake" :get_loader(path_fake, img_size, batch_size, chunk="eval")}
+    loaders = {"real":get_loader(path_real,batch_size,img_size, chunk="eval"),"fake" :get_loader(path_fake,batch_size,img_size, chunk="eval")}
     for key in loaders:
         actvs = []
-        print(loaders[key])
+        #print(loaders[key])
+        print(f"{key} images")
         for x in tqdm(loaders[key],total=len(loaders[key])) : 
-            print(inception(x.to(device)))
+            #print(inception(x.to(device)))
+            #print(x.shape)
             actvs.append(inception(x.to(device))) 
         actvs = torch.cat(actvs, dim=0).cpu().detach().numpy()
         mu[key]= np.mean(actvs, axis=0)

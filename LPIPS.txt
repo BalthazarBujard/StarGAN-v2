@@ -1,0 +1,30 @@
+LPIPS:
+CELEBA
+    latent : 
+    {'male2female': array(0.5098303, dtype=float32),
+     'female2male': array(0.5236599, dtype=float32),
+     'LPIPS_latent/mean': 0.5167450904846191}
+
+    reference :
+    {'male2female': array(0.42272726, dtype=float32),
+     'female2male': array(0.42590123, dtype=float32),
+     'LPIPS_reference/mean': 0.4243142455816269}
+
+AFHQ
+    latent :
+    {'dog2cat': array(0.58963954, dtype=float32),
+     'wild2cat': array(0.57994574, dtype=float32),
+     'cat2dog': array(0.59454405, dtype=float32),
+     'wild2dog': array(0.588575, dtype=float32),
+     'cat2wild': array(0.55877763, dtype=float32),
+     'dog2wild': array(0.568961, dtype=float32),
+     'LPIPS_latent/mean': 0.5800738334655762}
+
+    reference :
+    {'dog2cat': array(0.5135362, dtype=float32),
+     'wild2cat': array(0.5033674, dtype=float32),
+     'cat2dog': array(0.51548344, dtype=float32),
+     'wild2dog': array(0.51938856, dtype=float32),
+     'cat2wild': array(0.49517125, dtype=float32),
+     'dog2wild': array(0.5060271, dtype=float32),
+     'LPIPS_reference/mean': 0.5088289976119995}
