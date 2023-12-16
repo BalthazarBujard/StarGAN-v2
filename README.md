@@ -1,13 +1,7 @@
 # StarGAN-v2
-Projet de MLA : réimplémenter l'article "StarGAN v2"
+Advanced Machine LEarning Project : Reimplementing StarGANv2
 
 
-A COMPLETER AU FUR ET A MESURE DU PROJET :
-  
-  DOIT EXPLIQUER FONCTIONNEMENT ET UTILISATION
-  
-  IMPLéMENTATION
-  
-  REQUIEREMENTS
+This repository is split into 
   
   ...
