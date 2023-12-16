@@ -63,20 +63,19 @@ class StarDataset(Dataset):
             img_ref1, img_ref2 = np.random.choice(self.img_paths,size=2,replace=False)
             img_ref1 = Image.open(img_ref1).convert("RGB")
             img_ref2 = Image.open(img_ref2).convert("RGB")
+           
+            #generate 2 random latent codes from normal distribution and a random domain
+            z1 = torch.randn(self.latent_dim)
+            z2 = torch.randn(self.latent_dim)
+            y_trg = torch.randint(0, len(self.domains), ())
         
         #should at least have resize and normalize (and toTensor obviously)
         if self.transform is not None:
             img = self.transform(img)
-            img_ref1 = self.transform(img_ref1)
-            img_ref2 = self.transform(img_ref2)
-        
-        
-        #generate 2 random latent codes from normal distribution and a random domain
-        z1 = torch.randn(self.latent_dim)
-        z2 = torch.randn(self.latent_dim)
-        y_trg = torch.randint(0, len(self.domains), ())
-        
-        
+            
+            if self.chunk=="train":
+                img_ref1 = self.transform(img_ref1)
+                img_ref2 = self.transform(img_ref2)
         
         if self.chunk=="train":
             inputs = Munch(x = img, y=label, z1 = z1,
@@ -168,7 +167,7 @@ def _balanced_sampler(labels):
 
 
 #function to create a dataset, fromthat dataset instantiate a dataloader and return it
-def get_loader(root, batch_size, img_size, chunk = "train", num_files=-1, imgnet_normalize=False):
+def get_loader(root, batch_size, img_size, chunk = "train", num_files=-1):
     """
 
     Parameters
@@ -184,9 +183,7 @@ def get_loader(root, batch_size, img_size, chunk = "train", num_files=-1, imgnet
     
     num_files : int, optional
         total files in the loader. Default is -1 to have all files
-    imgnet_normalize : bool, optional
-        True if imagenet normalization (for fid training i guess???)
-
+    
     Returns
     -------
     loader : DataLoader
@@ -208,15 +205,11 @@ def get_loader(root, batch_size, img_size, chunk = "train", num_files=-1, imgnet
             transforms.Normalize([0.5]*3,[0.5]*3)
             ])
 
-    #there is no test loader (?)
     elif chunk == "test" : transform = None #with transform as none we apply default transforms
     
     elif chunk == "eval":
         mean = [0.5]*3
-        std = [0.5]*3
-        if imgnet_normalize == True:
-            mean = [0.485, 0.456, 0.406]
-            std = [0.229, 0.224, 0.225]   
+        std = [0.5]*3  
         
         transform = transforms.Compose([
             transforms.Resize([img_size, img_size]),
@@ -267,12 +260,13 @@ class Fetcher:
         inputs = self._fetch_inputs()
         
         #pass inputs to cuda
-        if self.chunk=="train":
+        if self.chunk=="train" or self.chunk=="test":
             return Munch({key : item.to(self.device) for key, item in inputs.items()}) 
+        
         elif self.chunk == "eval":
-            return inputs.to(self.device)
+            return inputs.to(self.device) #only one input in eval mode
         else:
-            raise Exception(f"Invalid chunk : {chunk}. Valid chunks are train or eval")
+            raise Exception(f"Invalid chunk : {chunk}. Valid chunks are train, test or eval")
             
         
       
