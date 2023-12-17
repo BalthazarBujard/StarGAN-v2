@@ -6,7 +6,6 @@ from munch import Munch
 import os
 from train.check_point_handler import *  
 from train.loss import loss_discriminator, loss_generator#, loss_discriminator
-#from train.loss_cheat import loss_generator #,loss_generator #for debugging
 from architecture.Model import *
 from dataloader.Dataloader import Fetcher
 import time
