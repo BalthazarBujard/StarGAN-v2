@@ -20,7 +20,7 @@ This folder contains two scripts : EvluationMetrics.py and Evaluator.py. Evaluat
 
 The results of the evaluation are in the metrics folder. There is  **LPIPS.txt** file for the LPIPS metrics and 2 folders for each model's FID in a json format (celeba_hq trained model and afhq trained model)
 
-In order to recreate the results there are 2 Jupyter Notebooks : train_test and eval_test. The first is to train the model and the latter for evaluation. Those scripts have a params cell dedicated handling all the hyperparameters of training, the paths to datasets and other parameters. The pretrained weights of the two models can be downloaded form this link https://drive.google.com/drive/u/6/folders/12wFJIVgQR2emESxrYf3ML9exeje15126, so you don't need to train the model again, just load the last checkpoint to the model following the eval_test.ipynb protocol and you'll be good to go !
+In order to recreate the results there are 2 Jupyter Notebooks : **train.ipynb** and **eval.ipynb**. The first is to train the model and the latter for evaluation. Those scripts have a params cell dedicated handling all the hyperparameters of training, the paths to datasets and other parameters. The pretrained weights of the two models can be downloaded form this link https://drive.google.com/drive/u/6/folders/12wFJIVgQR2emESxrYf3ML9exeje15126, so you don't need to train the model again, just load the last checkpoint to the model following the eval_test.ipynb protocol and you'll be good to go !
 
 The last Jupyter Notebook **results.ipynb** is there to generate the figures and images used in the project report.
 
