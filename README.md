@@ -22,6 +22,8 @@ The results of the evaluation are in the metrics folder. There is  **LPIPS.txt**
 
 In order to recreate the results there are 2 Jupyter Notebooks : **train.ipynb** and **eval.ipynb**. The first is to train the model and the latter for evaluation. Those scripts have a params cell dedicated handling all the hyperparameters of training, the paths to datasets and other parameters. The pretrained weights of the two models can be downloaded form this link https://drive.google.com/drive/u/6/folders/12wFJIVgQR2emESxrYf3ML9exeje15126, so you don't need to train the model again, just load the last checkpoint to the model following the eval_test.ipynb protocol and you'll be good to go !
 
+for FAN network weights use this link https://drive.google.com/file/d/1XYNnd-CLb4iXD81SEqwvDfJ1p_XUCzI8/view?usp=sharing.
+
 The last Jupyter Notebook **results.ipynb** is there to generate the figures and images used in the project report.
 
 
